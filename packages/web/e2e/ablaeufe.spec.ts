@@ -189,7 +189,8 @@ test('Admin setzt Passwort zurück, Person muss ein eigenes festlegen', async ({
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page.getByRole('heading', { name: 'Eigenes Passwort festlegen' })).toBeVisible();
   expect(await axe(page)).toEqual([]);
-  await page.getByLabel('Einmal-Passwort vom Admin').fill(einmal);
+  // Seit 40402e0 entfällt das Feld direkt nach der Anmeldung: das Einmal-Passwort ist schon bekannt
+  await expect(page.getByLabel('Einmal-Passwort vom Admin')).toHaveCount(0);
   await page.getByLabel('Neues Passwort', { exact: true }).fill('kais eigener langer satz');
   await page.getByLabel('Neues Passwort wiederholen').fill('kais eigener langer satz');
   await page.getByRole('button', { name: 'Passwort speichern' }).click();

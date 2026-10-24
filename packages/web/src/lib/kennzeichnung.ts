@@ -22,7 +22,21 @@ export function modellText(h: KiHerkunft | undefined, provider?: Einstellungen['
 }
 
 /** z. B. „Diese Antwort hat eine KI aus euren Dokumenten erzeugt (Modell: mistral-small-latest, mistral).“ */
+export const TESTMODUS_ANTWORT = 'Testmodus ohne KI: Antwort aus Textauszügen.';
+
+/**
+ * Testmodus = Anbieter „mock“ (kein Sprachmodell). Die Felder der Antwort gehen vor: ein Modell „mock“
+ * (älterer Server schickte ki_erzeugt=true dazu) ist Testmodus, ein echtes Modell nie.
+ */
+export function istTestmodus(h: KiHerkunft | undefined, provider?: Einstellungen['provider']): boolean {
+  if (h?.modell) return h.modell.anbieter === 'mock' || h.modell.name === 'mock';
+  if (typeof h?.ki_erzeugt === 'boolean') return !h.ki_erzeugt && provider?.art === 'mock';
+  return provider?.art === 'mock';
+}
+
 export function kiHinweis(h: KiHerkunft | undefined, provider: Einstellungen['provider'] | undefined, was: 'Antwort' | 'Zusammenfassung' = 'Antwort'): string {
-  if (!istKi(h, provider)) return was === 'Antwort' ? 'Ohne KI: wörtliche Auszüge aus euren Dokumenten mit Fundstelle.' : 'Ohne KI zusammengestellt aus euren Dokumenten.';
+  // Testmodus ist nie KI, auch wenn ein älterer Server ki_erzeugt=true mit Modell „mock“ schickt
+  if (istTestmodus(h, provider) && was === 'Antwort') return TESTMODUS_ANTWORT;
+  if (istTestmodus(h, provider) || !istKi(h, provider)) return was === 'Antwort' ? 'Ohne KI: wörtliche Auszüge aus euren Dokumenten mit Fundstelle.' : 'Ohne KI zusammengestellt aus euren Dokumenten.';
   return `Diese ${was} hat eine KI aus euren Dokumenten erzeugt (Modell: ${modellText(h, provider)}).`;
 }

@@ -2,7 +2,10 @@
  * Bereitsteller „hetzner“ für die Stufe „Eigene Maschine“ (O1 1.8.3, CONTRACT v1.4 3.1; G1 V-1, W-1 bis W-8).
  *
  * Ablauf je Instanz:
- *  1. Server über die Hetzner Cloud API, cloud-init aus deploy/cloud-init/geteilt.yaml (gleiche Härtung wie ein
+ *  1. Datenplatte: Hetzner-Volume im Standort des Servers, vor dem Server angelegt und beim Anlegen angehängt (cloud-init
+ *     verschlüsselt es mit LUKS, XFS, Docker-Daten darauf). Ohne Volume lägen die Kundendaten unverschlüsselt auf der
+ *     Systemplatte (HZ1, echter Hetzner-Test 24.10.2026).
+ *     Server über die Hetzner Cloud API, cloud-init aus deploy/cloud-init/geteilt.yaml (gleiche Härtung wie ein
  *     geteilter Host, nur ein Mandant) mit eingesetzten Werten: WireGuard-Schlüssel der Maschine (vom Leitstand erzeugt),
  *     Tunneladresse, Egress-Verwaltungstoken, LUKS-Schlüssel, Rückruf mit Einmal-Token. Firewall: nur 80/443, 443/udp
  *     und 51820/udp.
@@ -16,7 +19,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { HetznerApi, HetznerFehler, NICHT_VERFUEGBAR, type HServer } from '../hetzner/api.js';
+import { HetznerApi, HetznerFehler, NICHT_VERFUEGBAR, type HServer, type HVolume } from '../hetzner/api.js';
 import type { Geheimnisse } from '../geheimnisse.js';
 import { sha256 } from '../geheimnisse.js';
 import { DockerEngine } from '../docker/engine.js';
@@ -36,6 +39,8 @@ export const MASCHINE_SCHRITTE = ['server_anlegen', 'dns_setzen', 'warten_auf_ru
 /** G1 V-1: andere Standorte (NBG1, HEL1, FSN1), dann nächstgrößerer Typ. Typen [Schätzung], im Leitstand änderbar. */
 export const STANDORTE: Record<Region, string[]> = { 'de-nbg': ['nbg1', 'hel1', 'fsn1'], 'de-fsn': ['fsn1', 'nbg1', 'hel1'], 'fi-hel': ['hel1', 'nbg1', 'fsn1'] };
 export const TYPEN: Record<Paket, string[]> = { klein: ['cx23', 'cx33', 'cpx22'], betrieb: ['cx33', 'cx43', 'cpx32'], team: ['cx43', 'cx53', 'cpx42'] };
+/** Größe der Datenplatte je Paket in GB [Schätzung]; Preis 0,0572 €/GB/Monat netto (Hetzner get_pricing, 24.10.2026). */
+export const VOLUME_GB: Record<Paket, number> = { klein: 20, betrieb: 50, team: 100 };
 
 export interface HetznerOptionen {
   api: HetznerApi;
@@ -54,6 +59,7 @@ export interface HetznerOptionen {
   repo?: { url: string; ref: string };
   backupZiel?: string;
   typen?: Record<Paket, string[]>;
+  volumeGb?: Record<Paket, number>;
   standorte?: Record<Region, string[]>;
   zahlungBestaetigt?: (instanzId: string) => boolean;
   cloudInitVorlage?: string;
@@ -70,7 +76,7 @@ export interface HetznerOptionen {
   maschineOptionen?: Partial<DockerOptionen>;
 }
 
-interface Stand { server_id?: number; ipv4?: string; ipv6?: string; angelegt?: number; rueckruf?: { am: number }; subdomain?: string }
+interface Stand { server_id?: number; ipv4?: string; ipv6?: string; angelegt?: number; rueckruf?: { am: number; einrichtung?: 'ok' | 'fehler' }; subdomain?: string; volume_id?: number }
 
 export function vorlagePfad(name = 'geteilt.yaml'): string {
   return fileURLToPath(new URL(`../../../../deploy/cloud-init/${name}`, import.meta.url));
@@ -126,7 +132,7 @@ export class HetznerBereitsteller implements Bereitsteller {
   }
 
   /** Rückruf aus cloud-init (POST /v1/rueckruf/:id). Token einmalig, nur als Hash gespeichert. */
-  rueckruf(id: string, token: string, body: { ipv4?: string }): boolean {
+  rueckruf(id: string, token: string, body: { ipv4?: string; einrichtung?: string }): boolean {
     const g = this.o.geheimnisse.hole(id);
     if (!g?.rueckruf_token_sha256 || !token) return false;
     const a = Buffer.from(sha256(token)), b = Buffer.from(g.rueckruf_token_sha256);
@@ -134,7 +140,8 @@ export class HetznerBereitsteller implements Bereitsteller {
     const { rueckruf_token_sha256: _weg, ...rest } = g;
     this.o.geheimnisse.setze(id, rest);
     const s = this.st(id);
-    s.rueckruf = { am: this.uhr() };
+    // cloud-init läuft nach einem Fehler weiter; die Maschine meldet deshalb selbst, ob Platte, Sperre, Caddy und Egress stehen
+    s.rueckruf = { am: this.uhr(), ...(body.einrichtung === 'ok' || body.einrichtung === 'fehler' ? { einrichtung: body.einrichtung } : {}) };
     if (body.ipv4 && /^\d{1,3}(\.\d{1,3}){3}$/.test(body.ipv4) && !s.ipv4) s.ipv4 = body.ipv4;
     return true;
   }
@@ -143,24 +150,61 @@ export class HetznerBereitsteller implements Bereitsteller {
     const versuche: string[] = [];
     const typen = (this.o.typen ?? TYPEN)[a.paket], orte = (this.o.standorte ?? STANDORTE)[a.region];
     const fw = await this.o.api.firewallSichern('kern-eigene-maschine', { kern: 'eigene-maschine' });
-    for (const typ of typen) for (const ort of orte) {
-      const frei = await this.o.api.serverTypVerfuegbar(typ, ort).catch(() => null);
-      if (frei === false) { versuche.push(`${typ}@${ort}: laut API nicht verfügbar`); continue; }
-      try {
-        const r = await this.o.api.serverAnlegen({ name: `kern-${a.subdomain}`, server_type: typ, location: ort, image: this.o.bild ?? 'ubuntu-24.04', ssh_keys: this.o.sshKeys, firewalls: [{ firewall: fw }], user_data: userData,
-          labels: { 'kern-instanz': a.id, 'kern-status': 'bereitstellung', 'kern-paket': a.paket } });
-        versuche.push(`${typ}@${ort}: angelegt`);
-        return { server: r.server, versuche };
-      } catch (e) {
-        if (e instanceof HetznerFehler && NICHT_VERFUEGBAR.has(e.code)) { versuche.push(`${typ}@${ort}: ${e.code}`); continue; }
-        if (e instanceof HetznerFehler && e.code === 'uniqueness_error') {
-          const da = (await this.o.api.serverListe(`kern-instanz=${a.id}`))[0];
-          if (da) { versuche.push(`${typ}@${ort}: schon vorhanden`); return { server: da, versuche }; }
+    const labels = { 'kern-instanz': a.id, 'kern-status': 'bereitstellung', 'kern-paket': a.paket };
+    // Ein Volume je versuchtem Standort (Volumes sind an den Standort gebunden); nicht genutzte werden wieder gelöscht.
+    const volumes = new Map<string, HVolume>();
+    for (const v of await this.o.api.volumeListe(`kern-instanz=${a.id}`)) volumes.set(v.location.name, v);
+    const volumeFuer = async (ort: string) => {
+      let v = volumes.get(ort);
+      if (!v) {
+        v = await this.o.api.volumeAnlegen({ name: `kern-${a.subdomain}-daten-${ort}`, size: (this.o.volumeGb ?? VOLUME_GB)[a.paket], location: ort, labels });
+        volumes.set(ort, v);
+      }
+      return v;
+    };
+    const restWeg = async (ausser?: number) => { for (const v of volumes.values()) if (v.id !== ausser && !v.server) await this.o.api.volumeLoeschen(v.id).catch(() => undefined); };
+    try {
+      for (const typ of typen) for (const ort of orte) {
+        const frei = await this.o.api.serverTypVerfuegbar(typ, ort).catch(() => null);
+        if (frei === false) { versuche.push(`${typ}@${ort}: laut API nicht verfügbar`); continue; }
+        let vol: HVolume;
+        try { vol = await volumeFuer(ort); } catch (e) {
+          if (e instanceof HetznerFehler && NICHT_VERFUEGBAR.has(e.code)) { versuche.push(`Volume@${ort}: ${e.code}`); continue; }
+          throw e;
         }
-        throw e;
+        try {
+          const r = await this.o.api.serverAnlegen({ name: `kern-${a.subdomain}`, server_type: typ, location: ort, image: this.o.bild ?? 'ubuntu-24.04', ssh_keys: this.o.sshKeys, firewalls: [{ firewall: fw }], user_data: userData,
+            labels, volumes: [vol.id] });
+          versuche.push(`${typ}@${ort}: angelegt, Volume ${vol.id} (${vol.size} GB)`);
+          this.st(a.id).volume_id = vol.id;
+          await restWeg(vol.id);
+          return { server: r.server, versuche };
+        } catch (e) {
+          if (e instanceof HetznerFehler && NICHT_VERFUEGBAR.has(e.code)) { versuche.push(`${typ}@${ort}: ${e.code}`); continue; }
+          if (e instanceof HetznerFehler && e.code === 'uniqueness_error') {
+            const da = (await this.o.api.serverListe(`kern-instanz=${a.id}`))[0];
+            if (da) { versuche.push(`${typ}@${ort}: schon vorhanden`); return { server: da, versuche }; }
+          }
+          throw e;
+        }
+      }
+    } catch (e) { await restWeg(); throw e; }
+    await restWeg();
+    throw new Error(`Kein Servertyp verfügbar (V-1), Kunde bleibt in „Geteilt“, nichts wird berechnet. Versucht: ${versuche.join('; ')}`);
+  }
+
+  /** Volumes der Instanz löschen. Nach dem Löschen des Servers hängt Hetzner sie verzögert ab: so lange warten (höchstens 2 Minuten). */
+  async volumesLoeschen(id: string): Promise<string[]> {
+    const weg: string[] = [];
+    for (const v of await this.o.api.volumeListe(`kern-instanz=${id}`)) {
+      for (let i = 0; ; i++) {
+        try { await this.o.api.volumeLoeschen(v.id); weg.push(`Volume ${v.id}`); break; } catch (e) {
+          if (i >= 60 || !(e instanceof HetznerFehler) || ![409, 412, 423].includes(e.status)) throw e;
+          await this.schlafen(2000);
+        }
       }
     }
-    throw new Error(`Kein Servertyp verfügbar (V-1), Kunde bleibt in „Geteilt“, nichts wird berechnet. Versucht: ${versuche.join('; ')}`);
+    return weg;
   }
 
   /** Schritte bis zur erreichbaren Docker Engine; auch vom Verbund beim Stufenwechsel genutzt. */
@@ -171,6 +215,8 @@ export class HetznerBereitsteller implements Bereitsteller {
       case 'server_anlegen': {
         if (a.stufe !== 'eigen') throw new Error('Hetzner nur für „Eigene Maschine“');
         if (this.o.zahlungBestaetigt && !this.o.zahlungBestaetigt(a.id)) throw new Error('Keine bestätigte Zahlung: keine Hetzner-Kosten');
+        // Ohne Repo scheitert git clone in cloud-init, der Rest läuft weiter und der Server kostet ohne Nutzen (HZ1)
+        if (!this.o.repo?.url) throw new Error('Repo für cloud-init fehlt (KERN_REPO): kein Server ohne Quellcode-Quelle');
         const da = (await api.serverListe(`kern-instanz=${a.id}`))[0];
         if (da) { Object.assign(s, { server_id: da.id, ipv4: da.public_net.ipv4?.ip, ipv6: da.public_net.ipv6?.ip, angelegt: s.angelegt ?? Date.parse(da.created) }); return { meldung: `Server ${da.id} vorhanden` }; }
         const rueckrufToken = crypto.randomBytes(32).toString('base64url');
@@ -180,7 +226,7 @@ export class HetznerBereitsteller implements Bereitsteller {
         const userData = cloudInitFuellen(this.o.cloudInitVorlage ?? fs.readFileSync(vorlagePfad(), 'utf8'), {
           'managed-domain': this.o.domain, 'betriebs-mail': `betrieb@${this.o.domain}`, 'kern-image': this.o.kernImage,
           'leitstand-host': new URL(this.o.leitstandUrl).host, 'backup-ziel': this.o.backupZiel ?? '', 'host-id': `m-${a.id.slice(2)}`, token: crypto.randomBytes(24).toString('hex'),
-          ref: this.o.repo?.ref ?? 'main', repo: this.o.repo?.url ?? 'https://example.invalid/kern.git',
+          ref: this.o.repo.ref || 'main', repo: this.o.repo.url,
           'wg-privat': wg.privat, 'wg-adresse': wg.ip, 'leitstand-wg-pub': this.o.wg.oeffentlich, 'leitstand-wg-ip': this.o.wg.leitstandIp ?? WG_NETZ.leitstand,
           'egress-admin-token': egressAdmin, 'luks-schluessel': crypto.randomBytes(48).toString('base64url'),
           'rueckruf-token': rueckrufToken, 'rueckruf-url': `${this.o.leitstandUrl}/v1/rueckruf/${a.id}`,
@@ -199,7 +245,11 @@ export class HetznerBereitsteller implements Bereitsteller {
           }
           await this.schlafen(5000);
         }
-        return { meldung: 'Rückruf erhalten' };
+        if (s.rueckruf.einrichtung === 'fehler') {
+          await this.aufraeumen(a.id, a.subdomain);
+          throw new Error('Maschine meldet: Einrichtung unvollständig (Datenplatte, Sperre, Caddy oder Egress). Server und Volume gelöscht');
+        }
+        return { meldung: `Rückruf erhalten${s.rueckruf.einrichtung === 'ok' ? ', Einrichtung vollständig' : ''}` };
       }
       case 'tunnel_aufbauen': {
         const p = this.netz.hole(a.id);
@@ -263,6 +313,7 @@ export class HetznerBereitsteller implements Bereitsteller {
       await this.o.api.serverLoeschen(sv.id);
       weg.push(`Server ${sv.id}`);
     }
+    weg.push(...await this.volumesLoeschen(id));
     if (subdomain) { const rel = this.relativ(subdomain); await this.o.api.dnsLoeschen(this.o.zone, rel, 'A'); await this.o.api.dnsLoeschen(this.o.zone, rel, 'AAAA'); weg.push('DNS-Einträge'); }
     const p = this.netz.hole(id);
     if (p) { await this.o.wg.steuerung.peerEntfernen(p.oeffentlich).catch(() => undefined); this.netz.freigeben(id); weg.push('WireGuard-Peer'); }
@@ -281,6 +332,15 @@ export class HetznerBereitsteller implements Bereitsteller {
       if (Date.parse(sv.created) > grenze) continue;
       await this.o.api.serverLoeschen(sv.id);
       out.push(`verwaister Server ${sv.id} (${id}) gelöscht, keine Bereitstellung nach 30 Minuten`);
+      for (const v of await this.volumesLoeschen(id)) out.push(`${v} (${id}) gelöscht`);
+    }
+    // Volumes ohne Server (Leitstand während der Bereitstellung neu gestartet)
+    for (const v of await this.o.api.volumeListe('kern-status=bereitstellung')) {
+      const id = v.labels['kern-instanz'];
+      if (!id || v.server || Date.parse(v.created) > grenze) continue;
+      if ((await this.o.api.serverListe(`kern-instanz=${id}`)).length) continue;
+      await this.o.api.volumeLoeschen(v.id);
+      out.push(`verwaistes Volume ${v.id} (${id}) gelöscht`);
     }
     return out;
   }

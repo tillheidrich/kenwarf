@@ -7,13 +7,16 @@
 import type { BetriebAntwort, Transport } from '../src/betrieb-client.js';
 
 type Antwort = { status: number; body?: unknown };
-const json = (a: Antwort) => new Response(a.body === undefined ? '' : JSON.stringify(a.body), { status: a.status, headers: { 'content-type': 'application/json' } });
+const json = (a: Antwort) => a.status === 204 ? new Response(null, { status: 204 }) : new Response(a.body === undefined ? '' : JSON.stringify(a.body), { status: a.status, headers: { 'content-type': 'application/json' } });
 
 export class HetznerAttrappe {
   aufrufe: { methode: string; pfad: string; body?: unknown; auth: string | null }[] = [];
   server = new Map<number, { id: number; name: string; status: string; created: string; labels: Record<string, string>; public_net: { ipv4: { ip: string }; ipv6: { ip: string } }; server_type: { name: string }; location: { name: string }; user_data: string }>();
   firewalls = new Map<number, { id: number; name: string; rules: unknown[] }>();
   dns = new Map<string, string[]>();
+  /** Volumes; `abhaengen` = Zahl der DELETE-Versuche, die nach dem Löschen des Servers noch mit 423 locked scheitern (wie bei Hetzner verzögert). */
+  volumes = new Map<number, { id: number; name: string; size: number; server: number | null; labels: Record<string, string>; location: { name: string }; created: string; linux_device: string; abhaengen: number }>();
+  volumeAusverkauft = new Set<string>();
   /** "typ@ort" → nicht verfügbar (412 resource_unavailable) */
   ausverkauft = new Set<string>();
   n = 1000;
@@ -43,14 +46,42 @@ export class HetznerAttrappe {
       const passt = (l: Record<string, string>) => sel.split(',').every((t) => { const [k, v] = t.split('='); return v === undefined ? k! in l : l[k!] === v; });
       return { status: 200, body: { servers: [...this.server.values()].filter((s) => passt(s.labels)), meta: { pagination: { page: 1 } } } };
     }
+    const passtSel = (l: Record<string, string>) => { const sel = q.get('label_selector') ?? ''; return sel.split(',').every((t) => { const [k, v] = t.split('='); return v === undefined ? k! in l : l[k!] === v; }); };
+    if (m === 'GET' && p === '/volumes') return { status: 200, body: { volumes: [...this.volumes.values()].filter((v) => passtSel(v.labels)).map(({ abhaengen: _a, ...v }) => v) } };
+    if (m === 'POST' && p === '/volumes') {
+      if (!b?.name || typeof b.size !== 'number' || b.size < 10 || (!b.location && !b.server)) return { status: 422, body: { error: { code: 'invalid_input', message: 'name, size>=10 and location or server required' } } };
+      if (this.volumeAusverkauft.has(String(b.location))) return { status: 412, body: { error: { code: 'resource_unavailable', message: 'volume location unavailable' } } };
+      if ([...this.volumes.values()].some((v) => v.name === b.name)) return { status: 409, body: { error: { code: 'uniqueness_error', message: 'name is already used' } } };
+      const id = ++this.n;
+      const v = { id, name: String(b.name), size: b.size as number, server: null, labels: (b.labels ?? {}) as Record<string, string>, location: { name: String(b.location) }, created: this.jetzt(), linux_device: `/dev/disk/by-id/scsi-0HC_Volume_${id}`, abhaengen: 0 };
+      this.volumes.set(id, v);
+      const { abhaengen: _a, ...aus } = v;
+      return { status: 201, body: { volume: aus, action: { id: id + 1, command: 'create_volume', status: 'running' }, next_actions: [] } };
+    }
+    const vm = /^\/volumes\/(\d+)$/.exec(p);
+    if (vm && m === 'DELETE') {
+      const v = this.volumes.get(Number(vm[1]));
+      if (!v) return { status: 404, body: { error: { code: 'not_found', message: 'volume not found' } } };
+      if (v.server !== null) return { status: 423, body: { error: { code: 'locked', message: 'volume is attached' } } };
+      if (v.abhaengen > 0) { v.abhaengen--; return { status: 423, body: { error: { code: 'locked', message: 'volume is being detached' } } }; }
+      this.volumes.delete(v.id);
+      return { status: 204 };
+    }
     if (m === 'POST' && p === '/servers') {
       for (const k of ['name', 'server_type', 'image']) if (!b?.[k]) return { status: 422, body: { error: { code: 'invalid_input', message: `missing ${k}` } } };
+      for (const vid of (b!.volumes ?? []) as number[]) {
+        const v = this.volumes.get(vid);
+        if (!v) return { status: 404, body: { error: { code: 'not_found', message: `volume ${vid} not found` } } };
+        if (v.location.name !== b!.location) return { status: 422, body: { error: { code: 'invalid_input', message: 'volume and server must be in the same location' } } };
+        if (v.server !== null) return { status: 422, body: { error: { code: 'invalid_input', message: 'volume already attached' } } };
+      }
       if (Buffer.byteLength(String(b!.user_data ?? '')) > 32 * 1024) return { status: 422, body: { error: { code: 'invalid_input', message: 'user_data too long' } } };
       if (this.ausverkauft.has(`${b!.server_type}@${b!.location}`)) return { status: 412, body: { error: { code: 'resource_unavailable', message: 'server type unavailable in location' } } };
       if ([...this.server.values()].some((s) => s.name === b!.name)) return { status: 409, body: { error: { code: 'uniqueness_error', message: 'name is already used' } } };
       const id = ++this.n;
       const s = { id, name: String(b!.name), status: 'initializing', created: this.jetzt(), labels: b!.labels as Record<string, string>, public_net: { ipv4: { ip: this.naechsteIp?.() ?? `203.0.113.${id % 250}` }, ipv6: { ip: '2001:db8:1::/64' } }, server_type: { name: String(b!.server_type) }, location: { name: String(b!.location) }, user_data: String(b!.user_data) };
       this.server.set(id, s);
+      for (const vid of (b!.volumes ?? []) as number[]) this.volumes.get(vid)!.server = id;
       this.nachAnlegen?.({ id, user_data: s.user_data, labels: s.labels, ip: s.public_net.ipv4.ip });
       return { status: 201, body: { server: s, action: { id: id + 1, status: 'running' }, next_actions: [], root_password: null } };
     }
@@ -59,7 +90,7 @@ export class HetznerAttrappe {
       const s = this.server.get(Number(sm[1]));
       if (!s) return { status: 404, body: { error: { code: 'not_found', message: 'server not found' } } };
       if (m === 'GET') { if (s.status === 'initializing') s.status = 'running'; return { status: 200, body: { server: s } }; } // wie Hetzner: nach dem Start „running“
-      if (m === 'DELETE') { this.server.delete(s.id); return { status: 200, body: { action: { id: s.id + 7, command: 'delete_server', status: 'running' } } }; }
+      if (m === 'DELETE') { this.server.delete(s.id); for (const v of this.volumes.values()) if (v.server === s.id) { v.server = null; v.abhaengen = 2; } return { status: 200, body: { action: { id: s.id + 7, command: 'delete_server', status: 'running' } } }; }
     }
     const z = /^\/zones\/([^/]+)\/rrsets(?:\/([^/]+)\/([A-Z]+)(\/actions\/set_records)?)?$/.exec(p);
     if (z) {

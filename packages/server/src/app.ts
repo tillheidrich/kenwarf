@@ -219,7 +219,9 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   };
   const mitKennzeichnung = <T extends object>(a: T): T & { ki_erzeugt: boolean; modell: { anbieter: string; name: string } | null } => {
     const x = a as T & { ki_erzeugt?: boolean; modell?: { anbieter: string; name: string } | null };
-    return { ...x, ki_erzeugt: x.ki_erzeugt ?? true, modell: x.modell === undefined ? modellVon() : x.modell };
+    // Testmodus (mock) ist nie „KI erzeugt“ und trägt kein Modell
+    const echt = config.kern.provider.art !== 'mock';
+    return { ...x, ki_erzeugt: x.ki_erzeugt ?? echt, modell: x.modell === undefined ? (echt ? modellVon() : null) : x.modell };
   };
   /** Weg „ohne KI“ (Modus nur_lesen): wörtliche Auszüge mit Fundstelle, ehrlich gekennzeichnet. */
   const ohneKi = async (u: User, frage: string, reichweite?: 'ich' | 'team' | 'betrieb', sammlung?: string) => {
@@ -1237,7 +1239,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       // Dateien mit Endung, die es nicht gibt: 404 statt App
       if (/\.[a-z0-9]{1,8}$/i.test(roh)) return c.text('Nicht gefunden.', 404);
     }
-    return new Response(await fsp.readFile(index), { headers: { 'Content-Type': MIME['.html']!, 'Cache-Control': 'no-cache' } });
+    return new Response(mitProduktName(await fsp.readFile(index, 'utf8'), config.produktName), { headers: { 'Content-Type': MIME['.html']!, 'Cache-Control': 'no-cache' } });
   });
 
   return { app, zugang, zugangAusCore, erzeugeToken };
@@ -1257,9 +1259,24 @@ async function findeOriginal(dataDir: string, quellPfad: string, kopf: Record<st
   return name ? sicherVerbinden(dataDir, `${ordnerRel}/${name}`) : null;
 }
 
+/**
+ * Produktname aus der Konfiguration (kern.yaml `produkt.name` oder KERN_PRODUKT_NAME) schon in die
+ * ausgelieferte Seite schreiben: Titel und `<meta name="kern-produkt">`. So zeigen auch Anmeldung und
+ * Ladeanzeige den Namen, bevor /api/ich antwortet. Der Standard bleibt „Kern“.
+ */
+export function mitProduktName(html: string, name: string): string {
+  const esc = name.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
+  const meta = `<meta name="kern-produkt" content="${esc}">`;
+  let h = html.replace(/<title>[^<]*<\/title>/i, `<title>${esc}</title>`);
+  if (/<meta name="kern-produkt"[^>]*>/i.test(h)) return h.replace(/<meta name="kern-produkt"[^>]*>/i, meta);
+  if (/<\/head>/i.test(h)) return h.replace(/<\/head>/i, `${meta}</head>`);
+  if (/<\/title>/i.test(h)) return h.replace(/<\/title>/i, `</title>${meta}`);
+  return meta + h;
+}
+
 function hinweisSeite(config: ServerConfig): string {
   const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kern</title></head>
-<body><main><h1>Kern läuft</h1><p>Die Weboberfläche ist noch nicht gebaut. Erwartet unter: <code>${esc(config.webDist)}</code></p>
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(config.produktName)}</title></head>
+<body><main><h1>${esc(config.produktName)} läuft</h1><p>Die Weboberfläche ist noch nicht gebaut. Erwartet unter: <code>${esc(config.webDist)}</code></p>
 <p>Bauen mit <code>npm run build -w packages/web</code>. Die REST-API liegt unter <code>/api</code>, MCP unter <code>/mcp</code>, Zustand unter <code>/healthz</code>.</p></main></body></html>`;
 }

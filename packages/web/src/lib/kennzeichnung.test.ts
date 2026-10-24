@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kiHinweis } from './kennzeichnung';
+import { istTestmodus, kiHinweis } from './kennzeichnung';
 
 describe('KI-Kennzeichnung (Art. 50 KI-VO, v1.4 D-L13)', () => {
   it('nennt KI und Modell aus der Antwort', () => {
@@ -17,5 +17,14 @@ describe('KI-Kennzeichnung (Art. 50 KI-VO, v1.4 D-L13)', () => {
   });
   it('Zusammenfassungen werden ebenso gekennzeichnet', () => {
     expect(kiHinweis({ ki_erzeugt: true, modell: { anbieter: 'ionos', name: 'llama' } }, undefined, 'Zusammenfassung')).toMatch(/^Diese Zusammenfassung hat eine KI/);
+  });
+  it('Testmodus: nur „Testmodus ohne KI“, nie zugleich „KI erzeugt (Modell: mock)“', () => {
+    expect(kiHinweis({ ki_erzeugt: false, modell: null }, { art: 'mock' })).toBe('Testmodus ohne KI: Antwort aus Textauszügen.');
+    // älterer Server: ki_erzeugt=true mit Modell mock
+    const alt = kiHinweis({ ki_erzeugt: true, modell: { anbieter: 'mock', name: 'mock' } }, { art: 'mock' });
+    expect(alt).toBe('Testmodus ohne KI: Antwort aus Textauszügen.');
+    expect(alt).not.toContain('erzeugt');
+    expect(kiHinweis({ ki_erzeugt: true, modell: { anbieter: 'mock', name: 'mock' } }, undefined, 'Zusammenfassung')).toMatch(/^Ohne KI/);
+    expect(istTestmodus({ ki_erzeugt: true, modell: { anbieter: 'mistral', name: 'mistral-small-latest' } }, { art: 'mock' })).toBe(false);
   });
 });

@@ -19,6 +19,8 @@ export interface KernConfig {
   provider: ProviderConfig;
   betrieb: string;
   sprache: 'de' | 'en';
+  /** Produktname für core (Standard „Kern“), aus kern.yaml `produkt.name` oder KERN_PRODUKT_NAME. */
+  produktname?: string;
 }
 
 export interface User {

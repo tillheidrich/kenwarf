@@ -21,7 +21,7 @@ export function smtpAusUmgebung(env: NodeJS.ProcessEnv = process.env): SmtpEinst
 export interface Sender { senden(m: { an: string; betreff: string; text: string; kopf?: Record<string, string> }): Promise<{ id: string }> }
 
 export class SmtpSender implements Sender {
-  private t: nodemailer.Transporter;
+  private t: ReturnType<typeof nodemailer.createTransport>;
   constructor(private e: SmtpEinstellung) {
     this.t = nodemailer.createTransport({
       host: e.host, port: e.port, secure: e.port === 465, requireTLS: e.port !== 465 && !e.tlsUnsicherNurTest,

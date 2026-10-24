@@ -38,7 +38,11 @@ describe('Grundlagen', () => {
     fs.writeFileSync(path.join(web, 'assets', 'a.js'), 'console.log(1)');
     const { erstelleApp } = await import('../src/index.js');
     const app = erstelleApp({ kern: u.kern, config: { ...u.config, webDist: web } }).app;
-    expect(await (await app.request('/eingang')).text()).toContain('Kern UI');
+    // Seite kommt aus webDist; Titel und Meta tragen den konfigurierten Produktnamen (Standard „Kern“)
+    const seite = await (await app.request('/eingang')).text();
+    expect(seite).toContain('<!doctype html>');
+    expect(seite).toContain('<title>Kern</title>');
+    expect(seite).toContain('<meta name="kern-produkt" content="Kern">');
     const js = await app.request('/assets/a.js');
     expect(js.headers.get('content-type')).toContain('javascript');
     expect(js.headers.get('cache-control')).toContain('immutable');

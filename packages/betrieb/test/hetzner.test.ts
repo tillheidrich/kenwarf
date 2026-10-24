@@ -14,7 +14,7 @@ import { oeffneDb } from '../src/db.js';
 import { wgSchluessel, type WgSteuerung } from '../src/wireguard.js';
 import { HetznerAttrappe } from './attrappen.js';
 
-function aufbau(opt: { rueckruf?: boolean; zahlung?: boolean; engineOk?: boolean } = {}) {
+function aufbau(opt: { rueckruf?: boolean; zahlung?: boolean; engineOk?: boolean; ohneRepo?: boolean; einrichtung?: 'ok' | 'fehler' } = {}) {
   const h = new HetznerAttrappe();
   const db = oeffneDb(':memory:');
   const g = new Geheimnisse(db, Geheimnisse.zufall());
@@ -25,13 +25,14 @@ function aufbau(opt: { rueckruf?: boolean; zahlung?: boolean; engineOk?: boolean
   const lk = wgSchluessel();
   const b: HetznerBereitsteller = new HetznerBereitsteller({
     api: new HetznerApi('test-token', h.fetch), db, domain: 'kunden.kern.example', zone: 'kern.example', geheimnisse: g, leitstandUrl: 'https://leitstand.example', sshKeys: ['hd-betrieb'],
+    repo: opt.ohneRepo ? undefined : { url: 'https://git.example/kern.git', ref: 'main' },
     kernImage: 'ghcr.io/example/kern@sha256:' + 'c'.repeat(64), wg: { oeffentlich: lk.oeffentlich, steuerung },
     zahlungBestaetigt: () => opt.zahlung !== false, jetzt: () => uhr,
     engineFuer: () => ({ ping: async () => { if (opt.engineOk === false) throw new Error('weg'); return 'OK'; } }) as unknown as DockerEngine,
     schlafen: async (ms) => {
       uhr += ms;
       if (opt.rueckruf === false) return;
-      for (const s of h.server.values()) { const t = /Bearer ([A-Za-z0-9_-]{20,})/.exec(s.user_data)?.[1]; if (t) b.rueckruf(s.labels['kern-instanz']!, t, { ipv4: s.public_net.ipv4.ip }); }
+      for (const s of h.server.values()) { const t = /Bearer ([A-Za-z0-9_-]{20,})/.exec(s.user_data)?.[1]; if (t) b.rueckruf(s.labels['kern-instanz']!, t, { ipv4: s.public_net.ipv4.ip, einrichtung: opt.einrichtung ?? 'ok' }); }
     },
   });
   const a = { id: 'i_abcdefghij', subdomain: 'ahlers', paket: 'klein' as const, region: 'de-nbg' as const, stufe: 'eigen' as const };
@@ -69,6 +70,22 @@ describe('cloud-init aus deploy/cloud-init/geteilt.yaml', () => {
     expect(f('/etc/ssh/sshd_config.d/10-kern.conf')).toMatch(/ListenAddress 10\.99\./);
     expect(doc.packages).toEqual(expect.arrayContaining(['wireguard', 'socat', 'nftables']));
     expect(doc.runcmd.at(-1)).toBe('/usr/local/sbin/kern-rueckruf');
+    // Befunde des echten Hetzner-Tests (HZ1): Sperre nach Neustart, IPv6-Nachbarerkennung, Datenplatte, Rückruf
+    expect(f('/etc/systemd/system/kern-eingang.service')).toMatch(/ExecStart=\/usr\/sbin\/nft -f \/etc\/kern\/eingang\.nft/);
+    expect(f('/etc/systemd/system/kern-eingang.service')).toMatch(/WantedBy=sysinit\.target/);
+    expect(doc.runcmd).toContain('systemctl enable --now kern-eingang.service');
+    expect(doc.runcmd).not.toContain('nft -f /etc/kern/eingang.nft');
+    expect(f('/etc/kern/eingang.nft')).toMatch(/^table inet kern_eingang\ndelete table inet kern_eingang\n/m);
+    expect(f('/etc/kern/eingang.nft')).toMatch(/icmpv6 type \{ nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert/);
+    expect(f('/usr/local/sbin/kern-datenplatte')).toMatch(/scsi-0HC_Volume_/);
+    expect(f('/usr/local/sbin/kern-datenplatte')).toMatch(/\/etc\/crypttab/);
+    expect(f('/usr/local/sbin/kern-datenplatte')).toMatch(/"data-root": "\/srv\/kern\/docker"/);
+    expect(f('/usr/local/sbin/kern-datenplatte')).not.toMatch(/\/dev\/sdb/);
+    expect(f('/etc/systemd/system/docker.service.d/10-kern-datenplatte.conf')).toMatch(/RequiresMountsFor=\/srv\/kern/);
+    expect(doc.runcmd.indexOf('/usr/local/sbin/kern-datenplatte')).toBeLessThan(doc.runcmd.indexOf('systemctl enable --now docker fail2ban auditd'));
+    expect(f('/usr/local/sbin/kern-rueckruf')).toMatch(/--retry-all-errors/);
+    expect(f('/usr/local/sbin/kern-rueckruf')).toMatch(/einrichtung/);
+    expect(doc.packages).toContain('docker-buildx');
     // Firewall bei Hetzner: kein Port 22 von außen
     const fw = [...h.firewalls.values()][0]!;
     expect(JSON.stringify(fw.rules)).not.toMatch(/"port":"22"/);
@@ -135,9 +152,63 @@ describe('Bereitsteller hetzner (Eigene Maschine)', () => {
     expect(await b.wartung()).toEqual([`verwaister Server ${r.server.id} (i_verwaist01) gelöscht, keine Bereitstellung nach 30 Minuten`]);
     expect(h.server.size).toBe(1);
     const weg = await b.aufraeumen(a.id);
-    expect(weg).toEqual([expect.stringMatching(/^Server \d+$/), 'DNS-Einträge', 'WireGuard-Peer']);
+    expect(weg).toEqual([expect.stringMatching(/^Server \d+$/), expect.stringMatching(/^Volume \d+$/), 'DNS-Einträge', 'WireGuard-Peer']);
     expect(h.server.size).toBe(0);
+    expect(h.volumes.size).toBe(0);
     expect(h.dns.size).toBe(0);
     expect(peers).toEqual([]);
+  });
+
+  it('Volume-Schritt: Datenplatte im Standort des Servers vor dem Server, angehängt ohne Automount und ohne Format (HZ1)', async () => {
+    const { h, b, a } = aufbau();
+    h.ausverkauft.add('cx23@nbg1');
+    const m = await b.maschineSchritt('server_anlegen', a);
+    expect(m.meldung).toMatch(/cx23@hel1: angelegt, Volume \d+ \(20 GB\)/);
+    const vols = [...h.volumes.values()];
+    expect(vols).toHaveLength(1); // nbg1 war laut API nicht verfügbar: dort kein Volume
+    const sv = [...h.server.values()][0]!;
+    expect(vols[0]).toMatchObject({ location: { name: 'hel1' }, server: sv.id, size: 20, labels: { 'kern-instanz': a.id, 'kern-status': 'bereitstellung' } });
+    const post = (pfad: string) => h.aufrufe.filter((x) => x.methode === 'POST' && x.pfad === pfad);
+    expect(post('/volumes')[0]!.body).toMatchObject({ automount: false, location: 'hel1' });
+    expect(post('/volumes')[0]!.body).not.toHaveProperty('format');
+    expect(post('/servers')[0]!.body).toMatchObject({ volumes: [vols[0]!.id], automount: false, location: 'hel1' });
+    expect(h.aufrufe.findIndex((x) => x.pfad === '/volumes' && x.methode === 'POST')).toBeLessThan(h.aufrufe.findIndex((x) => x.pfad === '/servers' && x.methode === 'POST'));
+  });
+  it('Volume-Schritt: Server im Standort ausverkauft → Volume dort wieder gelöscht, nächster Standort; nichts frei → keine Volumes übrig', async () => {
+    const { h, b, a } = aufbau();
+    // laut server_types frei, beim Anlegen aber 412 (kommt bei Hetzner vor)
+    const orig = h.fetch;
+    h.fetch = async (u, i) => (String(u).endsWith('/servers') && i?.method === 'POST' && JSON.parse(String(i.body)).location === 'nbg1')
+      ? new Response(JSON.stringify({ error: { code: 'resource_unavailable', message: 'x' } }), { status: 412 }) : orig(u, i);
+    b.o.api = new HetznerApi('test-token', h.fetch);
+    await b.maschineSchritt('server_anlegen', a);
+    expect([...h.volumes.values()].map((v) => v.location.name)).toEqual(['hel1']);
+    const z = aufbau();
+    for (const t of ['cx23', 'cx33', 'cpx22']) for (const o of ['nbg1', 'hel1', 'fsn1']) z.h.ausverkauft.add(`${t}@${o}`);
+    await expect(z.b.maschineSchritt('server_anlegen', z.a)).rejects.toThrow(/V-1/);
+    expect(z.h.volumes.size).toBe(0);
+  });
+  it('Aufräumen wartet, bis Hetzner das Volume nach dem Serverlöschen abgehängt hat; Wartung löscht verwaiste Volumes', async () => {
+    const { h, b, a, vor } = aufbau();
+    await bisTunnel(b, a);
+    expect(h.volumes.size).toBe(1);
+    await b.aufraeumen(a.id);
+    expect(h.volumes.size).toBe(0);
+    expect(h.aufrufe.filter((x) => x.methode === 'DELETE' && x.pfad.startsWith('/volumes/')).length).toBe(3); // 2× 423 locked, dann gelöscht
+    const v = await new HetznerApi('test-token', h.fetch).volumeAnlegen({ name: 'kern-x-daten', size: 20, location: 'nbg1', labels: { 'kern-instanz': 'i_verwaist02', 'kern-status': 'bereitstellung' } });
+    expect(await b.wartung()).toEqual([]);
+    vor(31 * 60_000);
+    expect(await b.wartung()).toEqual([`verwaistes Volume ${v.id} (i_verwaist02) gelöscht`]);
+  });
+  it('Rückruf meldet „Einrichtung fehler“: Server und Volume gelöscht, ehrliche Meldung', async () => {
+    const { h, b, a } = aufbau({ einrichtung: 'fehler' });
+    await expect(bisTunnel(b, a)).rejects.toThrow(/Einrichtung unvollständig.*Server und Volume gelöscht/);
+    expect(h.server.size).toBe(0);
+    expect(h.volumes.size).toBe(0);
+  });
+  it('ohne Repo kein Server (git clone in cloud-init schlüge fehl)', async () => {
+    const { h, b, a } = aufbau({ ohneRepo: true });
+    await expect(b.maschineSchritt('server_anlegen', a)).rejects.toThrow(/Repo für cloud-init fehlt/);
+    expect(h.aufrufe.filter((x) => x.methode === 'POST')).toHaveLength(0);
   });
 });

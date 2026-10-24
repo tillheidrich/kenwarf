@@ -226,6 +226,7 @@ export function ladeKonfiguration(opt: { dataDir?: string; port?: number; env?: 
   }
   // P2: sicheres Cookie und HSTS, sobald HTTPS erkennbar ist (Produktion, Proxy oder https-Adresse), nicht nur mit NODE_ENV.
   // Zusätzlich je Anfrage: https-URL oder X-Forwarded-Proto: https vom vertrauten Proxy (siehe app.ts).
+  const produktName = (str((y.produkt as { name?: string } | undefined)?.name) ?? str(env.KERN_PRODUKT_NAME) ?? 'Kern').slice(0, 40);
   const httpsErkannt = produktion || (publicUrl?.startsWith('https://') ?? false) || modus === 'managed';
   if (env.KERN_BETRIEB_TOKEN && env.KERN_BETRIEB_TOKEN.length < 32) warnungen.push('KERN_BETRIEB_TOKEN ist kürzer als 32 Zeichen und wird ignoriert.');
   if (modus === 'managed' && !publicUrl) warnungen.push('Managed-Betrieb ohne KERN_PUBLIC_URL: Origin-Prüfung und OAuth-Metadaten leiten die Adresse aus der Anfrage ab.');
@@ -274,12 +275,14 @@ export function ladeKonfiguration(opt: { dataDir?: string; port?: number; env?: 
     umgebung: env,
     testKi: modus === 'managed' && ja(env.KERN_TEST_KI, false) && anbieter.some((a) => a.id === 'hd_test'),
     berufsgeheimnis: ja(env.KERN_BERUFSGEHEIMNIS, false) || y.berufsgeheimnis === true,
-    produktName: str((y.produkt as { name?: string } | undefined)?.name) ?? str(env.KERN_PRODUKT_NAME) ?? 'Kern',
+    produktName,
     webDist: path.resolve(env.KERN_WEB_DIST ?? path.join(hier, '..', '..', 'web', 'dist')),
     fake,
     sitzungStunden: zahl(env.KERN_SITZUNG_STUNDEN, 12),
     kern: {
       dataDir,
+      // Produktname auch für core (Texte, Kennungen, Ordnerindex); Standard „Kern“
+      produktname: produktName,
       betrieb: str(y.betrieb) ?? 'Mein Betrieb',
       sprache,
       provider: bauProvider((y.provider ?? y.ki) as Record<string, unknown> | undefined, env, warnungen, { modus, anbieter, geheimnis: (n) => new Geheimnisse(dataDir, str(env.KERN_GEHEIMNIS_SCHLUESSEL) ?? null).hole(n) }),

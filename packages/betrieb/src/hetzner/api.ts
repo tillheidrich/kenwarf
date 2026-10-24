@@ -6,7 +6,11 @@
  *   POST /firewalls (name, labels, rules[{direction, protocol, port, source_ips}]), GET /firewalls?name=…,
  *   DNS in der Cloud API: POST /zones/{zone}/rrsets (name, type, ttl, records[{value}]),
  *   POST /zones/{zone}/rrsets/{name}/{type}/actions/set_records, DELETE /zones/{zone}/rrsets/{name}/{type},
- *   GET /server_types?name=… (locations[].available).
+ *   GET /server_types?name=… (locations[].available),
+ *   POST /volumes (name, size ≥ 10, location, labels, automount; ohne format = Rohgerät für LUKS), GET /volumes?label_selector=…,
+ *   DELETE /volumes/{id} (nur abgehängt; nach dem Löschen des Servers hängt Hetzner das Volume asynchron ab).
+ *   Am echten Konto geprüft (HZ1, 24.10.2026): Volume vor dem Server im selben Standort anlegen und in POST /servers
+ *   unter `volumes` mitgeben; es erscheint als /dev/disk/by-id/scsi-0HC_Volume_<id>.
  * Fehlerform { error: { code, message, details } }; Codes aus der Tabelle „Error Codes“, u. a. 412 resource_unavailable,
  * 409 uniqueness_error, 429 rate_limit_exceeded, 503 unavailable, 423 locked.
  *
@@ -15,6 +19,8 @@
 export class HetznerFehler extends Error {
   constructor(public status: number, public code: string, meldung: string) { super(meldung); }
 }
+
+export interface HVolume { id: number; name: string; size: number; server: number | null; labels: Record<string, string>; location: { name: string }; created: string; linux_device?: string }
 
 export interface HServer { id: number; name: string; status: string; created: string; labels: Record<string, string>; public_net: { ipv4: { ip: string } | null; ipv6: { ip: string } | null }; server_type: { name: string }; location?: { name: string } }
 
@@ -36,10 +42,17 @@ export class HetznerApi {
     return j as T;
   }
 
-  async serverAnlegen(b: { name: string; server_type: string; location: string; image: string; ssh_keys: (string | number)[]; firewalls: { firewall: number }[]; user_data: string; labels: Record<string, string> }) {
+  async serverAnlegen(b: { name: string; server_type: string; location: string; image: string; ssh_keys: (string | number)[]; firewalls: { firewall: number }[]; user_data: string; labels: Record<string, string>; volumes?: number[] }) {
     if (Buffer.byteLength(b.user_data) > 32 * 1024) throw new Error('user_data über 32 KiB (Grenze der Hetzner-API)');
-    return this.rufe<{ server: HServer; action: { id: number; status: string } }>('POST', '/servers', { ...b, start_after_create: true, public_net: { enable_ipv4: true, enable_ipv6: true } });
+    // automount false: die Platte richtet cloud-init selbst ein (LUKS), Hetzner soll sie weder formatieren noch einhängen
+    return this.rufe<{ server: HServer; action: { id: number; status: string } }>('POST', '/servers', { ...b, ...(b.volumes?.length ? { automount: false } : {}), start_after_create: true, public_net: { enable_ipv4: true, enable_ipv6: true } });
   }
+  volumeAnlegen(b: { name: string; size: number; location: string; labels: Record<string, string> }) {
+    if (!Number.isInteger(b.size) || b.size < 10) throw new Error('Volume mindestens 10 GB (Grenze der Hetzner-API)');
+    return this.rufe<{ volume: HVolume }>('POST', '/volumes', { ...b, automount: false }).then((r) => r.volume);
+  }
+  volumeListe(labelSelector: string) { return this.rufe<{ volumes: HVolume[] }>('GET', `/volumes?label_selector=${encodeURIComponent(labelSelector)}&per_page=50`).then((r) => r.volumes); }
+  volumeLoeschen(id: number) { return this.rufe('DELETE', `/volumes/${id}`, undefined, [200, 204, 404]); }
   server(id: number) { return this.rufe<{ server: HServer }>('GET', `/servers/${id}`).then((r) => r.server); }
   serverLoeschen(id: number) { return this.rufe<{ action?: unknown }>('DELETE', `/servers/${id}`, undefined, [200, 404]); }
   serverListe(labelSelector: string) { return this.rufe<{ servers: HServer[] }>('GET', `/servers?label_selector=${encodeURIComponent(labelSelector)}&per_page=50`).then((r) => r.servers); }

@@ -74,17 +74,44 @@ describe('M3 und N7: Ablauf Pflicht, Sitzungen begrenzt und dauerhaft', () => {
 });
 
 describe('D-L13 Kennzeichnung KI', () => {
-  it('REST- und MCP-Antwort tragen ki_erzeugt und modell', async () => {
+  it('REST- und MCP-Antwort tragen ki_erzeugt und modell; Testmodus (mock) ist nie KI', async () => {
     const u = await umgebung();
     const l = new Client(u.app.app);
     await l.login('leser');
     const a = await (await l.req('POST', '/api/frage', { json: { frage: 'Wann Urlaub beantragen?' } })).json();
-    expect(a.ki_erzeugt).toBe(true);
-    expect(a.modell.name).toBeTruthy();
+    expect(u.config.kern.provider.art).toBe('mock');
+    expect(a.ki_erzeugt).toBe(false);
+    expect(a.modell).toBeNull();
     const { token } = u.app.erzeugeToken(await userVon(u, 'leser'));
     const m = await (await u.app.app.request('http://kern.test/mcp', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'kern_frage', arguments: { frage: 'Urlaub?' } } }) })).json();
-    expect(m.result.structuredContent.ki_erzeugt).toBe(true);
-    expect(JSON.parse(m.result.content[0].text).modell).toBeTruthy();
+    expect(m.result.structuredContent.ki_erzeugt).toBe(false);
+    expect(JSON.parse(m.result.content[0].text).modell).toBeNull();
+  });
+});
+
+describe('BF1: Produktname aus der Konfiguration', () => {
+  it('KERN_PRODUKT_NAME erscheint in /api/ich, in der ausgelieferten Seite und in core; Standard bleibt Kern', async () => {
+    const std = await umgebung();
+    expect(std.config.produktName).toBe('Kern');
+    const u = await umgebung({ KERN_PRODUKT_NAME: 'Kenwarf' });
+    expect(u.config.produktName).toBe('Kenwarf');
+    expect(u.config.kern.produktname).toBe('Kenwarf');
+    const l = new Client(u.app.app);
+    await l.login('leser');
+    expect((await (await l.req('GET', '/api/ich')).json()).produkt).toEqual({ name: 'Kenwarf' });
+    const web = path.join(u.dir, 'web');
+    fs.mkdirSync(web, { recursive: true });
+    fs.writeFileSync(path.join(web, 'index.html'), '<!doctype html><html><head><title>Kern</title></head><body></body></html>');
+    const app = erstelleApp({ kern: u.kern, config: { ...u.config, webDist: web } }).app;
+    const seite = await (await app.request('/')).text();
+    expect(seite).toContain('<title>Kenwarf</title>');
+    expect(seite).toContain('<meta name="kern-produkt" content="Kenwarf"></head>');
+  });
+
+  it('mitProduktName maskiert und ersetzt eine vorhandene Meta-Angabe', async () => {
+    const { mitProduktName } = await import('../src/app.js');
+    const h = mitProduktName('<head><title>x</title><meta name="kern-produkt" content="alt"></head>', 'A&B"<');
+    expect(h).toBe('<head><title>A&amp;B&quot;&lt;</title><meta name="kern-produkt" content="A&amp;B&quot;&lt;"></head>');
   });
 });
 

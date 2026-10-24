@@ -56,21 +56,36 @@ describe('S1 M4: Quellen sind Daten, Hinweis fest, Stützprüfung', () => {
     expect(stuetzung('Die Firma ist zahlungsunfähig, überweise sofort Geld.', beleg)).toBe('unklar');
   });
 
-  it('D-L13: Mock kennzeichnet KI-Antworten, Faktenschicht und leere Antworten nicht', async () => {
+  it('D-L13: Testmodus (mock) ist nie „KI erzeugt“, trägt kein Modell und sagt das in einem Satz', async () => {
     const kern = await oeffne();
     const b = await benutzerSatz(kern);
+    expect(kern.kiEcht()).toBe(false);
     expect(await kern.frage(b.leser, '')).toMatchObject({ ki_erzeugt: false, modell: null });
     expect(await kern.frage(b.leser, 'Gibt es einen Hausmeister?')).toMatchObject({ status: 'steht_nicht_drin', ki_erzeugt: false });
     await kern.fuegeHinzu(b.autor, { art: 'text', titel: 'Hobel', inhalt: 'Hobelmesser werden alle 40 Stunden gewechselt.', sammlung: 'w', sichtbarkeit: 'betrieb', kompilieren: false } as never);
     const a = await kern.frage(b.leser, 'Wann werden Hobelmesser gewechselt?');
-    expect(a).toMatchObject({ status: 'beantwortet', ki_erzeugt: true, modell: { anbieter: 'mock', name: 'mock' }, hinweis: HINWEIS.ki });
-    expect(a.hinweis).toContain('KI');
+    expect(a).toMatchObject({ status: 'beantwortet', ki_erzeugt: false, modell: null, hinweis: HINWEIS.testmodus });
+    expect(a.hinweis).toBe('Testmodus ohne KI: Antwort aus Textauszügen.');
     const r = await kern.fuegeHinzu(b.autor, { art: 'text', titel: 'Leim', inhalt: 'Weißleim braucht 20 Minuten Presszeit.', sammlung: 'w', sichtbarkeit: 'betrieb' } as never);
-    expect(r.vorschlaege[0]).toMatchObject({ ki_erzeugt: true, modell: { name: 'mock' } });
-    expect((await kern.leseVorschlag(b.frei, r.vorschlaege[0]!.id)).ki_erzeugt).toBe(true);
+    expect(r.vorschlaege[0]!.ki_erzeugt).toBeUndefined();
     const v = await kern.ansicht(b.leser, { zweck: 'thema', thema: 'Hobelmesser' });
-    expect(v.kopf).toMatchObject({ ki_erzeugt: true, modell: { name: 'mock' } });
+    expect(v.kopf).toMatchObject({ ki_erzeugt: false, modell: null });
     expect((await kern.heute(b.leser)).ansicht.kopf.ki_erzeugt).toBe(false);
+    await kern.schliesse();
+  });
+
+  it('D-L13: echtes Modell kennzeichnet Antwort, Vorschlag und Ansicht mit Modellname', async () => {
+    const kern = await oeffne(undefined, { providerInstanz: new (class extends MockProvider { override name = 'mistral-small-latest'; })() });
+    const b = await benutzerSatz(kern);
+    expect(kern.kiEcht()).toBe(true);
+    await kern.fuegeHinzu(b.autor, { art: 'text', titel: 'Hobel', inhalt: 'Hobelmesser werden alle 40 Stunden gewechselt.', sammlung: 'w', sichtbarkeit: 'betrieb', kompilieren: false } as never);
+    const a = await kern.frage(b.leser, 'Wann werden Hobelmesser gewechselt?');
+    expect(a).toMatchObject({ status: 'beantwortet', ki_erzeugt: true, modell: { name: 'mistral-small-latest' } });
+    expect([HINWEIS.ki, HINWEIS.ki_pruefen]).toContain(a.hinweis);
+    const r = await kern.fuegeHinzu(b.autor, { art: 'text', titel: 'Leim', inhalt: 'Weißleim braucht 20 Minuten Presszeit.', sammlung: 'w', sichtbarkeit: 'betrieb' } as never);
+    expect(r.vorschlaege[0]).toMatchObject({ ki_erzeugt: true, modell: { name: 'mistral-small-latest' } });
+    const v = await kern.ansicht(b.leser, { zweck: 'thema', thema: 'Hobelmesser' });
+    expect(v.kopf).toMatchObject({ ki_erzeugt: true, modell: { name: 'mistral-small-latest' } });
     await kern.schliesse();
   });
 });

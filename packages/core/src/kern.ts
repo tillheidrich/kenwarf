@@ -59,6 +59,7 @@ export const HINWEIS = {
   ki: 'Diese Antwort hat eine KI aus euren Dokumenten erzeugt. Prüf die Belege.',
   ki_pruefen: 'Diese Antwort hat eine KI aus euren Dokumenten erzeugt. Nicht jeder Satz ist durch den Beleg gedeckt; bitte die Belege lesen.',
   ki_fehler: 'Die KI-Antwort war nicht verwendbar. Bitte später erneut fragen oder in den Dokumenten suchen.',
+  testmodus: 'Testmodus ohne KI: Antwort aus Textauszügen.',
 } as const;
 type Aenderung = { pfad: string; inhalt: string | Buffer | null };
 
@@ -890,6 +891,14 @@ export class Kern {
     return { anbieter: p.art, name: p.chatModell };
   }
 
+  /**
+   * Arbeitet ein echtes Sprachmodell? Der Testmodus (MockProvider, Name „mock“) setzt nur Textauszüge
+   * zusammen; seine Ausgaben sind nie „KI erzeugt“ (Art. 50 KI-VO, D-L13) und tragen kein Modell.
+   */
+  kiEcht(): boolean {
+    return this.provider.name !== 'mock';
+  }
+
   async frage(u: User, frage: string, opt: { reichweite?: Reichweite; sammlung?: string } = {}): Promise<Antwort> {
     const a = await this.frageIntern(u, frage, opt);
     try {
@@ -902,7 +911,8 @@ export class Kern {
 
   private async frageIntern(u: User, frage: string, opt: { reichweite?: Reichweite; sammlung?: string }): Promise<Antwort> {
     const ohneKi = { ki_erzeugt: false, modell: null } as const;
-    const mitKi = { ki_erzeugt: true, modell: this.modellInfo() };
+    const echt = this.kiEcht();
+    const mitKi = echt ? { ki_erzeugt: true, modell: this.modellInfo() } : ohneKi;
     const f = frage.trim();
     if (!f) return { status: 'steht_nicht_drin', punkte: [], belege: [], hinweis: HINWEIS.eingabe, ...ohneKi };
 
@@ -1040,7 +1050,7 @@ export class Kern {
     const markiert = punkte.map((p) => ({ ...p, gestuetzt: stuetzung(p.text, p.belege.map((n) => abschnittVon(belege[n - 1]!)).join('\n')) }));
     // Punkte ohne jede Stützung fallen weg, wenn andere Punkte gestützt sind (eingeschleuste Zusätze)
     const behalten = markiert.some((p) => p.gestuetzt !== 'unklar') ? markiert.filter((p) => p.gestuetzt !== 'unklar') : markiert;
-    return { status: 'beantwortet', punkte: behalten, belege, hinweis: behalten.some((p) => p.gestuetzt !== 'ja') ? HINWEIS.ki_pruefen : HINWEIS.ki, ...mitKi };
+    return { status: 'beantwortet', punkte: behalten, belege, hinweis: !echt ? HINWEIS.testmodus : behalten.some((p) => p.gestuetzt !== 'ja') ? HINWEIS.ki_pruefen : HINWEIS.ki, ...mitKi };
   }
 
   /** v1.4.1 U11: Quelle-Belege entfernen, wenn ein Artikel-Beleg derselben Antwort genau diese Quelle als einzige Fundstelle hat. */
@@ -1695,7 +1705,7 @@ export class Kern {
         basis_hash: aktuell === null ? '' : sha256(aktuell),
         ...(ziel.startsWith('wissen/_regeln/') ? { regel: true } : {}),
         ...(v.quelle ? { quelle: v.quelle } : {}),
-        ...(v.ki ? { ki_erzeugt: true, modell: this.modellInfo() } : {}),
+        ...(v.ki && this.kiEcht() ? { ki_erzeugt: true, modell: this.modellInfo() } : {}),
         diff: erzeugeDiff(ziel, aktuell ?? '', neu),
       };
       const pfad = `eingang/${vorschlag.id}.json`;
@@ -2527,7 +2537,7 @@ export class Kern {
       type: 'Ansicht', id, ...rest, fuer: u.id,
       generated: { by: `agent/${slugify(this.produkt)}-0.1+${this.provider.name}`, at: this.jetzt() },
       basis, basis_stand: letzter?.am ?? null, lesezeit_min: Math.max(1, Math.ceil(woerter / wpm)), status: 'aktuell', vorgaenger,
-      ki_erzeugt: !!ki, modell: ki ? this.modellInfo() : null,
+      ki_erzeugt: !!ki && this.kiEcht(), modell: ki && this.kiEcht() ? this.modellInfo() : null,
     };
     const geordnet: Record<string, unknown> = {};
     for (const k of ['type', 'id', 'zweck', 'fuer', 'titel', 'stil', 'generated', 'gilt_bis', 'basis', 'basis_stand', 'lesezeit_min', 'status', 'vorgaenger', 'ki_erzeugt', 'modell', 'zu_entscheiden', 'punkte', 'fundstellen']) if (kopf[k] !== undefined) geordnet[k] = kopf[k];

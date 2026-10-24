@@ -1137,7 +1137,7 @@ function Konto() {
 }
 
 const EXPORT_ARTEN: { art: ExportArt; titel: string; unter: string; admin?: boolean }[] = [
-  { art: 'zip', titel: 'ZIP mit Verlauf', unter: 'Euer Ordner mit Artikeln, Quellen, Originalen und git-Verlauf. Lesbar ohne Kern, zum Beispiel in Obsidian.' },
+  { art: 'zip', titel: 'ZIP mit Verlauf', unter: 'Euer Ordner mit Artikeln, Quellen, Originalen und git-Verlauf. Lesbar ohne dieses Programm, zum Beispiel in Obsidian.' },
   { art: 'okf', titel: 'Offenes Format (OKF)', unter: 'Für andere Werkzeuge. Markdown mit YAML-Kopf, nur was du sehen darfst.' },
   { art: 'umzugspaket', titel: 'Umzugspaket', unter: 'Vollständig und verschlüsselt, für den Umzug in die eigene Cloud oder auf einen Rechner im Haus.', admin: true },
 ];

@@ -3,9 +3,11 @@
 # Datenplatte (XFS mit Projektkontingent, LUKS), Docker, Caddy + kern-egress, nftables-Sperre, Backups stündlich,
 # Wiederherstellungstest nachts, Sicherheitsupdates. Instanzen legt danach der Leitstand mit kern-host an.
 #
-# NICHT auf einem echten Hetzner-Server geprüft. In der Sandbox geprüft sind die Bausteine einzeln
-# (e2e/egress/egress-test.sh, e2e/backup/backup-test.sh); XFS-Kontingente konnten dort nicht erzwungen werden
-# (Kernel ohne Quota-Unterstützung), siehe docs/betrieb/runbook.md.
+# Auf einem echten Hetzner-Server geprüft (HZ1, 24.10.2026, cx23 nbg1 + 10-GB-Volume, Ubuntu 24.04, cloud-init 26.1):
+# LUKS2/XFS mit prjquota auf dem Volume, Kontingent 5G je Instanz erzwungen, WireGuard zum Leitstand, sshd/Docker/
+# Egress-Verwaltung nur auf der Tunneladresse (auch nach Neustart), Caddy holt Let's-Encrypt-Zertifikat, /healthz.
+# Dabei gefundene Fehler sind hier behoben (Sperre nach Neustart weg, IPv6 ohne Nachbarerkennung, Datenplatte nach
+# Neustart nicht geöffnet, Docker-Daten auf der unverschlüsselten Systemplatte, Rückruf ohne Wiederholung).
 #
 # Vorher ersetzen: KERN_MANAGED_DOMAIN, ACME_MAIL, KERN_BACKUP_ZIEL, KERN_IMAGE (fester Digest), KERN_REPO/REF,
 # den SSH-Schlüssel und die WireGuard-Werte. Keine Geheimnisse ins Repo: diese Datei wird beim Anlegen vom Leitstand
@@ -16,6 +18,7 @@ package_upgrade: true
 packages:
   - docker.io
   - docker-compose-v2
+  - docker-buildx
   - git
   - jq
   - curl
@@ -60,11 +63,16 @@ write_files:
   # Eingehend nur 51820/udp, 80/443 und über den Tunnel vom Leitstand: SSH, Docker Engine (2375), Egress-Verwaltung (3129)
   - path: /etc/kern/eingang.nft
     content: |
+      # Erst leeren, dann neu schreiben: mehrfaches Laden verdoppelt keine Regeln
+      table inet kern_eingang
+      delete table inet kern_eingang
       table inet kern_eingang {
         chain input {
           type filter hook input priority 0; policy drop;
           iif lo accept
           ct state established,related accept
+          # IPv6 braucht Nachbar- und Routererkennung, sonst ist der Server per IPv6 (AAAA) nicht erreichbar (HZ1)
+          icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert, packet-too-big, destination-unreachable, time-exceeded, parameter-problem, echo-request } accept
           udp dport 51820 accept
           tcp dport { 80, 443 } accept
           udp dport 443 accept
@@ -72,6 +80,47 @@ write_files:
           icmp type echo-request limit rate 5/second accept
         }
       }
+  # Sperre bei jedem Start laden (nft -f allein gilt nur bis zum nächsten Neustart, HZ1)
+  - path: /etc/systemd/system/kern-eingang.service
+    content: |
+      [Unit]
+      Description=Kern: Eingangssperre (nftables) vor dem Netz laden
+      DefaultDependencies=no
+      Before=network-pre.target
+      Wants=network-pre.target
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/nft -f /etc/kern/eingang.nft
+      [Install]
+      WantedBy=sysinit.target
+  # Docker erst, wenn die verschlüsselte Datenplatte eingehängt ist (data-root liegt darauf)
+  - path: /etc/systemd/system/docker.service.d/10-kern-datenplatte.conf
+    content: |
+      [Unit]
+      RequiresMountsFor=/srv/kern
+  # Datenplatte: Hetzner-Volume (by-id, nicht /dev/sdb), LUKS2, XFS mit prjquota, crypttab/fstab für Neustarts,
+  # Docker-Daten (Images, Volumes der Instanzen) auf die Platte verlegt
+  - path: /usr/local/sbin/kern-datenplatte
+    permissions: "0700"
+    content: |
+      #!/bin/sh
+      set -eu
+      geraet="$(ls /dev/disk/by-id/scsi-0HC_Volume_* 2>/dev/null | head -n1 || true)"
+      [ -n "$geraet" ] || { echo "kern-datenplatte: kein Hetzner-Volume" >&2; exit 1; }
+      test -s /root/kern-luks.key
+      cryptsetup isLuks "$geraet" || cryptsetup luksFormat --batch-mode --type luks2 "$geraet" /root/kern-luks.key
+      test -b /dev/mapper/kern-daten || cryptsetup open "$geraet" kern-daten --key-file /root/kern-luks.key
+      blkid /dev/mapper/kern-daten >/dev/null || mkfs.xfs /dev/mapper/kern-daten
+      grep -q '^kern-daten ' /etc/crypttab 2>/dev/null || echo "kern-daten $geraet /root/kern-luks.key luks,discard,nofail" >> /etc/crypttab
+      grep -q ' /srv/kern ' /etc/fstab || echo '/dev/mapper/kern-daten /srv/kern xfs defaults,prjquota,nofail 0 2' >> /etc/fstab
+      mkdir -p /srv/kern
+      mountpoint -q /srv/kern || mount /srv/kern
+      systemctl stop docker.socket docker 2>/dev/null || true
+      if [ -d /var/lib/docker ] && [ ! -d /srv/kern/docker ]; then cp -a /var/lib/docker /srv/kern/docker; fi
+      mkdir -p /srv/kern/docker
+      jq '. + {"data-root": "/srv/kern/docker"}' /etc/docker/daemon.json > /etc/docker/daemon.json.neu && mv /etc/docker/daemon.json.neu /etc/docker/daemon.json
+      systemctl daemon-reload
   # Docker Engine und Egress-Verwaltung nur auf der Tunneladresse, nur für den Leitstand (range=)
   - path: /etc/systemd/system/kern-wg-docker.service
     content: |
@@ -108,15 +157,25 @@ write_files:
     permissions: "0700"
     content: |
       #!/bin/sh
+      # Meldet auch, ob die Einrichtung geklappt hat: runcmd läuft nach einem Fehler weiter (HZ1), ohne diese
+      # Angabe hielte der Leitstand eine halb eingerichtete Maschine für fertig.
       set -u
       for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 5; done
       ip4="$(curl -fsS --max-time 5 http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)"
-      curl -fsS --max-time 15 --retry 10 --retry-delay 15 -X POST -H 'authorization: Bearer <rueckruf-token>' \
-        -H 'content-type: application/json' -d "{\"ipv4\":\"$ip4\"}" '<rueckruf-url>'
+      stand=ok
+      mountpoint -q /srv/kern || stand=fehler
+      [ "$(docker info -f '{{.DockerRootDir}}' 2>/dev/null)" = /srv/kern/docker ] || stand=fehler
+      for c in kern-caddy kern-egress; do [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ] || stand=fehler; done
+      nft list table inet kern_eingang >/dev/null 2>&1 || stand=fehler
+      # --retry-all-errors: auch bei abgewiesener Verbindung oder 5xx erneut versuchen (curl wiederholt sonst nur Zeitüberschreitungen)
+      curl -fsS --max-time 15 --retry 20 --retry-delay 15 --retry-all-errors -X POST -H 'authorization: Bearer <rueckruf-token>' \
+        -H 'content-type: application/json' -d "{\"ipv4\":\"$ip4\",\"einrichtung\":\"$stand\"}" '<rueckruf-url>'
   - path: /etc/docker/daemon.json
     content: |
       { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" }, "live-restore": true,
         "userland-proxy": false, "no-new-privileges": true, "icc": false }
+  # sshd nur im Tunnel: Ubuntu 24.04 startet sshd über ssh.socket; sshd-socket-generator übernimmt ListenAddress mit
+  # FreeBind=yes, deshalb bindet der Socket auch vor wg0. Auf Hetzner geprüft beim ersten Start und nach Neustart (HZ1).
   - path: /etc/ssh/sshd_config.d/10-kern.conf
     content: |
       PasswordAuthentication no
@@ -210,14 +269,14 @@ write_files:
       WantedBy=timers.target
 
 runcmd:
-  # Datenplatte: LUKS (Schlüssel kommt beim Anlegen vom Leitstand, liegt nicht im Repo), darin XFS mit prjquota
-  - test -b /dev/sdb && test -s /root/kern-luks.key && (cryptsetup isLuks /dev/sdb || cryptsetup luksFormat --batch-mode /dev/sdb /root/kern-luks.key)
-  - test -b /dev/sdb && cryptsetup open /dev/sdb kern-daten --key-file /root/kern-luks.key || true
-  - test -b /dev/mapper/kern-daten && (blkid /dev/mapper/kern-daten || mkfs.xfs /dev/mapper/kern-daten)
-  - mkdir -p /srv/kern
-  - test -b /dev/mapper/kern-daten && (grep -q kern-daten /etc/fstab || echo '/dev/mapper/kern-daten /srv/kern xfs defaults,prjquota,nofail 0 2' >> /etc/fstab) && mount /srv/kern || true
+  # Datenplatte: LUKS (Schlüssel kommt beim Anlegen vom Leitstand, liegt nicht im Repo), darin XFS mit prjquota.
+  # Ohne Platte keine Instanzen: kern-host verlangt das XFS-Kontingent (KERN_QUOTA=pflicht), der Rückruf meldet „fehler“.
+  # Der Schlüssel liegt auf der Systemplatte (für den Neustart ohne Eingabe); LUKS schützt damit das Volume für sich
+  # (Abzug, Snapshot, Wiederverwendung), nicht gegen Zugriff auf den laufenden Server.
+  - /usr/local/sbin/kern-datenplatte
+  - systemctl daemon-reload
+  - systemctl enable --now kern-eingang.service
   - systemctl enable --now docker fail2ban auditd
-  - nft -f /etc/kern/eingang.nft
   - systemctl enable --now wg-quick@wg0
   - augenrules --load || true
   - git clone --depth 1 --branch <ref> <repo> /opt/kern/src

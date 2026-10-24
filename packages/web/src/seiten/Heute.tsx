@@ -7,7 +7,7 @@ import { KontextKarte } from './Kontextbilanz';
 import { fehlerText, useLaden } from '../lib/laden';
 import { datum, datumLang } from '../lib/datum';
 import { AMPEL_WORT, BLOCK_TITEL, ersterUeberBudget, minutenText, schneideZu, sortiere } from '../lib/lesen';
-import { markdownZuHtml } from '../lib/markdown';
+import { ansichtZuHtml } from '../lib/ansicht';
 import { istKi, kiHinweis, modellText } from '../lib/kennzeichnung';
 import { zeilenText } from '../lib/fundstelle';
 import { fundstelleHref } from '../lib/artikel';
@@ -186,7 +186,7 @@ export function Heute() {
   const nach = (b: PunktBlock) => (z ? z.zeigen.filter((p) => p.block === b) : []);
   const grenzeId = z && z.ueber >= 0 ? sortiere(z.zeigen)[z.ueber]?.id ?? null : null;
   const zusammenText = h ? (nurAbw ? h.abweichungen : h.zusammenfassung) : '';
-  const zusammenHtml = useMemo(() => (zusammenText ? markdownZuHtml(zusammenText) : ''), [zusammenText]);
+  const zusammenHtml = useMemo(() => (zusammenText ? ansichtZuHtml(zusammenText) : ''), [zusammenText]);
   const hinweis = bilanz.daten?.hinweis;
 
   return (

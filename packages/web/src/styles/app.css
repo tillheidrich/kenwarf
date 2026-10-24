@@ -5049,3 +5049,28 @@ textarea.frage-eingabe {
   color: var(--bernstein);
   font-weight: 500;
 }
+
+/* Ansichten aus core (Heute, Briefing): Ampel und Belege aus dem Dateiformat, siehe lib/ansicht.ts */
+.prosa .lese-ampel {
+  margin-left: 6px;
+  vertical-align: 0.1em;
+}
+.ansicht-ampel-grund {
+  margin-left: 6px;
+  font-size: 13px;
+  color: var(--tinte-3);
+}
+.ansicht-belege-titel {
+  margin-top: 1.4em;
+  font-size: 14px;
+}
+.prosa ol.ansicht-belege {
+  list-style: none;
+  padding-left: 0;
+  font-size: 13.5px;
+  color: var(--tinte-2, var(--tinte-3));
+}
+.prosa ol.ansicht-belege li {
+  margin: 0.35em 0;
+  overflow-wrap: anywhere;
+}

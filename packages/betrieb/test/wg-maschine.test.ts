@@ -65,7 +65,7 @@ function maschineAusCloudInit(userData: string) {
   // Firewall der Maschine genau aus dem cloud-init (Schnittstellenname wg0 → p2wgm)
   fs.writeFileSync(path.join(tmp, 'eingang.nft'), datei('/etc/kern/eingang.nft').replace(/"wg0"/g, `"${WGM}"`));
   imNs(['nft', '-f', path.join(tmp, 'eingang.nft')]);
-  expect(doc.runcmd).toContain('nft -f /etc/kern/eingang.nft');
+  expect(doc.runcmd).toContain('systemctl enable --now kern-eingang.service');
   expect(doc.runcmd).toContain('systemctl enable --now wg-quick@wg0');
   // Docker Engine nur auf der Tunneladresse: ExecStart der Unit unverändert ausführen
   const exec = /ExecStart=(.*)/.exec(datei('/etc/systemd/system/kern-wg-docker.service'))![1]!.split(' ');
@@ -112,11 +112,11 @@ describe.skipIf(!da)(`Geteilt → Eigene Maschine über WireGuard (${BILD}, wire
     h.nachAnlegen = (s) => { maschine = maschineAusCloudInit(s.user_data); };
     const geteilt = new DockerBereitsteller({ engine, bild: BILD, domain: 'kunden.kern.example', geheimnisse: g, egress: null, caddy: null, egressContainer: null, netzPool: '10.239', healthSek: 90, zusatzEnv: { KERN_PROVIDER: 'mock' }, hostId: 'geteilt-01' });
     const hz: HetznerBereitsteller = new HetznerBereitsteller({
-      api: new HetznerApi('test-token', h.fetch), db, domain: 'kunden.kern.example', zone: 'kern.example', geheimnisse: g, leitstandUrl: 'https://leitstand.example', sshKeys: ['hd-betrieb'], kernImage: BILD,
+      api: new HetznerApi('test-token', h.fetch), db, domain: 'kunden.kern.example', zone: 'kern.example', geheimnisse: g, leitstandUrl: 'https://leitstand.example', sshKeys: ['hd-betrieb'], kernImage: BILD, repo: { url: 'https://git.example/kern.git', ref: 'main' },
       wg: { oeffentlich: lk.oeffentlich, steuerung: new WgBefehl(WGL) },
       schlafen: async (ms) => {
         await warte(Math.min(ms, 300));
-        for (const s of h.server.values()) { const t = /Bearer ([A-Za-z0-9_-]{20,})/.exec(s.user_data)?.[1]; if (t) hz.rueckruf(s.labels['kern-instanz']!, t, { ipv4: s.public_net.ipv4.ip }); }
+        for (const s of h.server.values()) { const t = /Bearer ([A-Za-z0-9_-]{20,})/.exec(s.user_data)?.[1]; if (t) hz.rueckruf(s.labels['kern-instanz']!, t, { ipv4: s.public_net.ipv4.ip, einrichtung: 'ok' }); }
       },
       rueckrufMinuten: 2, engineMinuten: 1,
       maschineOptionen: { praefix: 'kernm', bruecke: 'km', netzPool: '10.238', egress: null, caddy: null, egressContainer: null, zusatzEnv: { KERN_PROVIDER: 'mock' }, healthSek: 90 },

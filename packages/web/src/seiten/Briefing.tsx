@@ -2,7 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { api } from '../api';
 import { useLaden } from '../lib/laden';
 import { ampel, datum, datumLang, heuteIso } from '../lib/datum';
-import { markdownZuHtml } from '../lib/markdown';
+import { ansichtZuHtml } from '../lib/ansicht';
 import { kiHinweis } from '../lib/kennzeichnung';
 import { useApp } from '../kontext';
 import { href } from '../lib/router';
@@ -28,7 +28,7 @@ export function Briefing() {
   const [seit, setSeit] = useState<'1' | '7' | '30'>('1');
   const b = useLaden(() => api.briefing(vor(Number(seit))), [seit]);
   const f = useLaden(() => api.faellig(), []);
-  const html = useMemo(() => (b.daten ? markdownZuHtml(b.daten.text) : ''), [b.daten]);
+  const html = useMemo(() => (b.daten ? ansichtZuHtml(b.daten.text) : ''), [b.daten]);
   const woerter = b.daten ? b.daten.text.split(/\s+/).filter(Boolean).length : 0;
 
   return (
