@@ -84,16 +84,46 @@ docker run -d --name kern-neu -p 127.0.0.1:7480:7480 -v kern-daten-neu:/daten ke
 `pruefen` vergleicht die SHA-256-Liste aller Dateien, prüft die git-Geschichte (`git fsck`, gleicher HEAD), baut den Index neu und lässt `kern pruefen` laufen. Erst mit „UMZUG OK“ die alte Instanz abschalten. Anmeldungen und MCP-Tokens ziehen mit, der Sitzungsschlüssel nicht (alle melden sich einmal neu an).
 Warum nicht `kern export` (ZIP) oder OKF: Das ZIP lässt `.kern/` weg, also die Benutzer; der OKF-Import legt Artikel als Vorschläge an. Beides ist richtig für Austausch und Ausstieg, für einen Umzug von Kern zu Kern zu wenig.
 
-## 6. Was geprüft ist (24.10.2026, Sandbox)
-- Image gebaut aus dem Arbeitsstand (Snapshot von HEAD 9432bbe plus laufende Änderungen B1/B3), Basis `mirror.gcr.io/library/node:22-bookworm-slim`. Größe 744 MB (zu groß, siehe Offen).
-- `docker run`: Healthcheck „healthy“ nach etwa 10 s; Erstzugang im Log; Anmeldung, Text hinzufügen, Frage mit Fundstelle (`beantwortet`, Beleg mit Datei, Abschnitt, Zeile, Zitat) in 0,44 s ab Anmeldung (mock).
-- MCP: ohne Token 401, mit Token `initialize` und `kern_frage` mit Belegen.
-- Compose mit schreibgeschütztem Dateisystem, `cap_drop: ALL`, `no-new-privileges`: läuft. Caddyfile: `caddy validate` gültig. Profil `tls` und Zertifikat nicht gegen das Internet getestet.
-- Umzug A → B: Paket 23 KB, Prüfsummen, `git fsck`, gleicher HEAD, Index neu, `kern pruefen` ohne Fehler; auf B Anmeldung mit altem Passwort, Artikel, Verlauf und belegte Antwort vorhanden.
-- Backup ohne restic-Ziel und Wiederherstellungstest im Container ohne Netz: läuft. restic selbst und `cloud-init/hetzner.yaml` auf einem echten Hetzner-Server: **nicht geprüft**.
+## 6. Geteilter Host (Managed, Stufe „Geteilt“)
 
-## 7. Offen
-- Kein veröffentlichtes Image und kein öffentliches Repo; cloud-init baut deshalb aus dem Quellcode (`KERN_REPO` ist ein Platzhalter).
-- `package-lock.json` liegt nicht im git; ohne sie ist `npm ci` und damit der Bau nicht reproduzierbar.
-- Image verkleinern (Laufzeit-Abhängigkeiten von web/vite trennen, pdfjs-Ballast prüfen), SBOM (`docker buildx build --sbom=true`) und Signatur (cosign) für IT-Abteilungen.
-- Sitzungen liegen im Speicher: Jeder Neustart (auch Updates) meldet alle ab.
+Ein Container je Kunde, eigenes Docker-Netz `internal: true`, eigener Datenordner mit XFS-Kontingent, eigene Schlüssel.
+Bausteine unter `host/` und `egress/`, Ablauf und Störungen in `docs/betrieb/runbook.md`.
+
+| Datei | Zweck |
+|---|---|
+| `host/kern-host` | Instanz anlegen, Grenzen ändern, Status, `/_betrieb/*` aufrufen, entfernen (JSON-Zeilen für den Leitstand) |
+| `host/compose.yml`, `host/Caddyfile` | Caddy (On-Demand-TLS mit Ask, nur bekannte Subdomains) und kern-egress |
+| `host/Caddyfile.wildcard` | Alternative mit Wildcard-Zertifikat über DNS-01 (eigenes Caddy-Image nötig, nicht geprüft) |
+| `egress/kern-egress.mjs` | Ausgangs-Proxy mit Sperrliste nach DNS-Auflösung, nur 80/443, Erlaubnisliste je Instanz, Verwaltung für den Leitstand, TLS-Ask |
+| `host/nft-kern.sh` | zweite Sperre auf dem Host (eigene nftables-Tabelle an forward/input), Dauerdienst `beobachten` |
+| `host/kern-quota.sh` | XFS-Projektkontingent je Instanz |
+| `host/kern-backup` | restic stündlich je Instanz, Aufbewahrung 24/14/8/12, Wiederherstellungstest mit Bericht, Schlüssel vernichten |
+| `host/pakete.json`, `host/anbieter.json` | Grenzen je Paket (CONTRACT 3.1), KI-Anbieterliste (gleiche Datei für Instanz und Proxy) |
+| `cloud-init/geteilt.yaml` | Host von Grund auf (LUKS, XFS, Docker, Dienste, Timer), nicht auf echtem Hetzner geprüft |
+
+## 7. Image
+
+Seit D2 (24.10.2026) startet die Laufzeit von einem nackten Debian bzw. Alpine mit kopierter Node-Binärdatei, Abhängigkeiten
+ohne Entwicklungspakete und ohne Ballast (`scripts/schlank.sh`: `@napi-rs/canvas`, moderne pdfjs-Builds, fremde
+Plattform-Binärdateien, C-Quellen, Karten, Typen), perl aus der Git-Installation entfernt.
+
+| Variante | Docker „Disk usage“ | komprimiert | Vektorsuche |
+|---|---|---|---|
+| vorher (O1, node:22-bookworm-slim) | 744 MB | 183 MB | sqlite-vec |
+| `laufzeit` (Standard, Debian) | 419 MB | 107 MB | sqlite-vec |
+| `--target laufzeit-alpine` | 275 MB | 70 MB | JS-Kosinus (sqlite-vec hat keine musl-Binärdatei) |
+
+Standard bleibt Debian: Die JS-Vektorsuche hält alle Vektoren im Speicher; bei großen Instanzen im Paket „klein“ (768 MB)
+wäre das ein Risiko. Alpine für kleine und selbst gehostete Instanzen. Größter Einzelposten ist die Node-Binärdatei (125 MB).
+Rauchtest (`e2e/rauchtest/rauchtest.mjs`: Text, PDF, DOCX, belegte Antwort mit wörtlichem Zitat) grün: Debian an fd33686, Alpine an f09adb4.
+
+## 8. Was geprüft ist
+- O1 (24.10.2026): `docker run`, Compose mit Härtung, Umzug A nach B, Backup ohne Ziel. Siehe Verlauf dieses Dokuments.
+- D2 (24.10.2026, Sandbox): `e2e/egress/egress-test.sh` 57 Prüfungen grün, `e2e/backup/backup-test.sh` 12 Prüfungen grün,
+  Rauchtest grün, Stoppuhr siehe `e2e/stoppuhr/ergebnis.json` (am Stand fd33686 rot wegen Web/Server-Abweichung, mit
+  einzeiliger Probe-Korrektur grün in 8,7 s und 5 Klicks, `ergebnis-probe.json`).
+- Nicht geprüft: echter Hetzner-Server, Let's-Encrypt-Zertifikat, XFS-Kontingent (Kernel der Sandbox ohne Quota), LUKS.
+
+## 9. Offen
+- Kein veröffentlichtes Image; cloud-init baut aus dem Quellcode. SBOM (`docker buildx build --sbom=true`) und Signatur (cosign).
+- `package-lock.json` muss bei jeder Abhängigkeitsänderung mit committet werden (Stand 74ec34a: nicht synchron, `npm ci` bricht ab).

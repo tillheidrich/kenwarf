@@ -11,8 +11,13 @@ import { KernFehler } from './fehler.js';
  * ältere core-Stände. Der Server nutzt `kern.zugang`, sobald es vorhanden ist.
  */
 export type TokenArt = 'sitzung' | 'api' | 'mcp' | 'oauth_zugriff' | 'oauth_erneuerung';
-export type Scope = 'kern:lesen' | 'kern:fragen' | 'kern:vorschlagen' | 'kern:bericht' | 'kern:verwalten';
-export const ALLE_SCOPES: readonly Scope[] = ['kern:lesen', 'kern:fragen', 'kern:vorschlagen', 'kern:bericht', 'kern:verwalten'];
+/** v1.4.2: `kern:freigeben` nur für Tokens eines Menschen mit Rolle freigeber/admin, ausdrücklich gewählt, nie Agent, nie OAuth. */
+export type Scope = 'kern:lesen' | 'kern:fragen' | 'kern:vorschlagen' | 'kern:bericht' | 'kern:verwalten' | 'kern:freigeben';
+export const ALLE_SCOPES: readonly Scope[] = ['kern:lesen', 'kern:fragen', 'kern:vorschlagen', 'kern:bericht', 'kern:verwalten', 'kern:freigeben'];
+/** v1.4.2: Darf dieser Zugang `kern:freigeben` tragen? Nur Mensch (ohne agent), nur api/mcp, nur freigeber/admin. */
+export function freigebenErlaubt(u: User, e: { art: TokenArt; agent?: string | null }): boolean {
+  return (e.art === 'api' || e.art === 'mcp') && !e.agent && u.rollen.some((r) => r === 'freigeber' || r === 'admin');
+}
 
 export interface TokenEintrag {
   id: string;
@@ -100,6 +105,7 @@ export class ErsatzZugang implements ZugangLike {
     const scopes = e.scopes ?? ['kern:lesen', 'kern:fragen'];
     if (scopes.some((s) => !ALLE_SCOPES.includes(s))) throw new KernFehler(400, 'Unbekannter Scope.', 'ungueltig');
     if (scopes.includes('kern:verwalten') && !istAdmin(fuer)) throw new KernFehler(403, 'Scope kern:verwalten nur für Admins.', 'keine_rechte');
+    if (scopes.includes('kern:freigeben') && !freigebenErlaubt(fuer, e)) throw new KernFehler(403, 'Scope kern:freigeben nur für eigene Zugänge von Freigebern und Admins, nie für Agenten oder OAuth.', 'keine_rechte');
     const token = `kern_${crypto.randomBytes(32).toString('base64url')}`;
     // v1.4 M3: Ablauf für jeden Zugang Pflicht, höchstens 365 Tage.
     if (e.gueltigSek === null) throw new KernFehler(400, 'Jeder Zugang braucht ein Ablaufdatum.', 'ungueltig');

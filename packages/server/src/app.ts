@@ -6,15 +6,17 @@ import { Hono, type Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
-import type { KernLike, Rolle, Sichtbarkeit, User } from './types.js';
+import type { KernLike, Reichweite, Rolle, Sichtbarkeit, User } from './types.js';
 import { REGEL_ORDNER, ROLLEN } from './types.js';
 import type { ServerConfig } from './config.js';
 import { leseKernYaml, schreibeKernYaml } from './config.js';
 import { KernFehler, keineRechte, nichtGefunden, statusAusFehler, ungueltig } from './fehler.js';
 import { artikelPfad, dekodiereUrlPfad, quellenPfad, sicherVerbinden } from './pfade.js';
-import { darf, pruefeZiel, type Aktion } from './rechte.js';
+import { agentenScopes, alsAgent, darf, pruefeZiel, type Aktion, type AgentenProfil } from './rechte.js';
 import { bearbeiteMcp } from './mcp.js';
-import { waehleZugang, ALLE_SCOPES, type Scope, type TokenEintrag, type ZugangLike } from './zugang.js';
+import { sammelEntscheiden } from './sammel.js';
+import { anhangMaxBytes, pruefeAnhang } from './anhang.js';
+import { waehleZugang, ALLE_SCOPES, freigebenErlaubt, type Scope, type TokenEintrag, type ZugangLike } from './zugang.js';
 import { Fenster, KontoSperre, herkunftsIp } from './grenzen.js';
 import { ERLAUBTE_KEY_ENV } from './anbieter.js';
 import type { BenutzerDetail } from './types.js';
@@ -25,6 +27,15 @@ import { oauthRouten, oauthVon, OAUTH_SCOPES, STANDARD_SCOPE, scopeErlaubt } fro
 import { TOOL_SCOPE, MCP_TOOLS } from './mcp.js';
 import { bauDatenweg } from './datenweg.js';
 import { leseQuelle } from './kern-laden.js';
+import { bauAbruf, type Abruf } from './egress.js';
+import { Exporte } from './export.js';
+import { KiVerwaltung, ohneGeheimnis, type KiBlock } from './ki.js';
+import { Einrichtungszustand } from './einrichtung.js';
+import { voreinstellungenFuer } from './voreinstellungen.js';
+import { kontingentStand, pruefeKiKontingent } from './kontingent.js';
+import { v14Routen } from './v14.js';
+import { f12Hinweis, nurBekannteApps } from './oauth.js';
+import { pruefeProtokollversion } from './mcp.js';
 
 type Env = { Variables: { user: User } };
 
@@ -34,6 +45,8 @@ export interface AppOptionen {
   version?: string;
   /** Für Tests: eigener Abruf für Client ID Metadata Documents (sonst sichererAbruf aus core). */
   abruf?: (url: string) => Promise<{ status: number; text: () => string; typ: string }>;
+  /** Ausgehende Abrufe des Servers (Leitstand, KI-Verbindungstest); Standard über den Egress-Proxy aus config.proxy. */
+  egress?: Abruf;
 }
 
 export interface KernApp {
@@ -42,7 +55,7 @@ export interface KernApp {
   zugang: ZugangLike;
   zugangAusCore: boolean;
   /** Für Tests und CLI: Token für einen Benutzer selbst erzeugen (nie für andere). */
-  erzeugeToken(u: User, o?: { bezeichnung?: string; scopes?: Scope[]; gueltigTage?: number }): { token: string; eintrag: TokenEintrag };
+  erzeugeToken(u: User, o?: { bezeichnung?: string; scopes?: Scope[]; gueltigTage?: number; agent?: string; profil?: AgentenProfil; reichweite?: Reichweite }): { token: string; eintrag: TokenEintrag };
 }
 
 /** Ressourcen-Bezeichner und Metadaten-Pfad (RFC 9728) für MCP. */
@@ -61,6 +74,10 @@ const MIME: Record<string, string> = {
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
   '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.webmanifest': 'application/manifest+json',
+  // v1.4.1 U1: Anhänge (Download mit nosniff und Sandbox-CSP)
+  '.zip': 'application/zip', '.csv': 'text/csv; charset=utf-8', '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.heic': 'image/heic',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.odt': 'application/vnd.oasis.opendocument.text', '.mp4': 'video/mp4', '.mov': 'video/quicktime',
 };
 
 const sichtbarkeitSchema = z.string().regex(/^(ich|betrieb|team:[\p{L}\p{N}_ -]{1,60})$/u, 'Sichtbarkeit: ich, betrieb oder team:<name>');
@@ -93,6 +110,14 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   const uploadsMinute = new Fenster(g.uploadsProMinute, 60_000);
   const protokoll = new Sicherheitsprotokoll(config.dataDir);
   const betrieb = new Betriebszustand(config.dataDir);
+  // v1.4 3.7: alle ausgehenden Abrufe des Servers über den Egress-Proxy (HTTPS_PROXY), wenn gesetzt.
+  const egress: Abruf = opt.egress ?? bauAbruf(config.proxy);
+  // KI-Verbindungstest über den Kanal ".ki" (KERN_KI_PROXY), sonst wie alle anderen Abrufe.
+  const egressKi: Abruf = opt.egress ?? bauAbruf(config.kiProxy ?? config.proxy);
+  const geheimnisse = new Geheimnisse(config.dataDir, config.geheimnisSchluessel);
+  const kiVerwaltung = new KiVerwaltung(kern, config, geheimnisse);
+  const einrichtung = new Einrichtungszustand(config.dataDir, () => betrieb.zaehleMd('wissen') > 0);
+  const exporte = new Exporte(config.dataDir, config.secret, config.produktName);
   /** D-L5: ein Eintrag je Ereignis, ohne Inhalte. */
   const prot = (c: Context, ereignis: SicherheitsEreignis, benutzer: string | null, ergebnis: 'ok' | 'abgelehnt' | 'fehler' = 'ok', ziel?: string) =>
     protokoll.schreibe({ ereignis, benutzer, ergebnis, ziel, ip_kurz: kuerzeIp(clientIp(c)) });
@@ -181,6 +206,12 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     kiTagInstanz.zaehle('instanz');
   };
 
+  /** M5 und 3.4: zuerst Kontingent (dann wird nichts gezählt), dann Raten- und Tagesbudget. */
+  const kiFreigabe = async (u: User, art: 'frage' | 'ki') => {
+    await pruefeKiKontingent(kern, betrieb.grenzen);
+    kiBudget(u, art);
+  };
+
   /** D-L13: maschinenlesbare Kennzeichnung nach Art. 50 KI-VO, falls core sie (noch) nicht setzt. */
   const modellVon = (): { anbieter: string; name: string } => {
     const p = config.kern.provider as Record<string, unknown>;
@@ -225,12 +256,19 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   });
 
   app.onError((err, c) => {
-    const { status, meldung } = statusAusFehler(err);
+    const sf = statusAusFehler(err);
+    const { meldung } = sf;
+    // v1.4.1 U1: core meldet eine zu große Datei als ungueltig mit grund zu_gross → 413.
+    const status = sf.status === 400 && (err as { grund?: unknown }).grund === 'zu_gross' ? 413 : sf.status;
     const retry = (err as { retryAfter?: number }).retryAfter;
     if (retry) c.header('Retry-After', String(retry));
     // P2: keine Titel, Pfade oder Inhalte im Log, außer KERN_LOG_INHALTE=1.
-    if (status >= 500) console.error('[kern] Fehler:', config.logInhalte ? err : `${(err as Error)?.name ?? 'Error'} (Details mit KERN_LOG_INHALTE=1)`);
-    return c.json({ fehler: meldung }, status as 400);
+    if (status >= 500 && status !== 501) console.error('[kern] Fehler:', config.logInhalte ? err : `${(err as Error)?.name ?? 'Error'} (Details mit KERN_LOG_INHALTE=1)`);
+    // Maschinenlesbarer Code (z. B. nur_lesen, kontingent) und Grund für die Oberfläche; nie bei 500.
+    const e = err as { code?: unknown; grund?: unknown };
+    const code = status < 500 || status === 501 ? (typeof e.code === 'string' && /^[a-z_]{2,40}$/.test(e.code) ? e.code : undefined) : undefined;
+    const grund = typeof e.grund === 'string' ? e.grund : undefined;
+    return c.json({ fehler: meldung, ...(code ? { code } : {}), ...(grund ? { grund } : {}) }, status as 400);
   });
 
   // M1: Body-Grenzen. Vor der Anmeldung klein, JSON allgemein 1 MB, Vorschläge und Uploads eigene Grenzen.
@@ -243,7 +281,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   app.use('/api/*', async (c, next) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) return next();
     const p = c.req.path;
-    if (p === '/api/hinzufuegen') return next(); // eigene Upload-Grenze an der Route
+    if (p === '/api/hinzufuegen' || p === '/api/importieren') return next(); // eigene Upload-Grenze an der Route
     if (p === '/api/login') return grenzeLogin(c, next);
     if (p === '/api/vorschlag' || p.startsWith('/api/eingang/')) return grenzeVorschlag(c, next);
     return grenzeJson(c, next);
@@ -252,7 +290,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   app.get('/healthz', (c) => c.json({ ok: true, version }));
 
   // ---------- Betrieb (/_betrieb/*, nur intern, eigenes Token) und Modus ----------
-  betriebsRouten(app as unknown as Hono, { kern, config, zustand: betrieb, zugang, socketIp, protokoll, version });
+  betriebsRouten(app as unknown as Hono, { kern, config, zustand: betrieb, zugang, socketIp, protokoll, version, exporte });
 
   // v1.4 3.2: Modus pausiert → nur Hinweis; nur_lesen → schreibende Routen 423 (außer Anmelden, Abmelden, Passwort, Export, Konto).
   const IMMER_ERLAUBT = /^\/api\/(login|logout|ich\/passwort|ich\/abmelden-ueberall|export|konto|frage)(\/|$)/;
@@ -300,6 +338,9 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     if (origin && !originErlaubt(c, origin)) {
       return c.json({ jsonrpc: '2.0', error: { code: -32003, message: 'Herkunft (Origin) nicht erlaubt.' }, id: null }, 403);
     }
+    // MCP 2026-07-28 kann SDK 1.32.2 noch nicht: sauberer Rückfall auf 2025-11-25 (NOTES/server.md, Abschnitt MCP-Version).
+    const versionsFehler = await pruefeProtokollversion(c.req.raw);
+    if (versionsFehler) return versionsFehler;
     const auth = c.req.header('authorization') ?? '';
     const m = /^Bearer\s+(\S+)$/i.exec(auth);
     const resource = `${basisUrl(c)}${MCP_PFAD}`;
@@ -327,14 +368,20 @@ export function erstelleApp(opt: AppOptionen): KernApp {
         return c.json({ jsonrpc: '2.0', error: { code: -32003, message: kannErweitern ? `Dem Zugang fehlt der Scope ${noetig}.` : `Deine Rolle erlaubt ${noetig} nicht.` }, id: (r as { id?: unknown }).id ?? null }, 403);
       }
     }
-    return bearbeiteMcp(kern, nurUser(user), c.req.raw, version, {
-      scopes: treffer.eintrag.scopes,
-      vorFrage: () => kiBudget(nurUser(user), 'frage'),
+    // v1.4 8.4: Agenten-Zugänge (eigene Agenten-Tokens und OAuth) arbeiten höchstens als autor, ohne kern:vorschlagen als leser.
+    const agentName = treffer.eintrag.agent ?? (treffer.eintrag.art === 'oauth_zugriff' ? treffer.eintrag.clientId : null);
+    const wirkt = agentName ? alsAgent(nurUser(user), treffer.eintrag.scopes) : nurUser(user);
+    return bearbeiteMcp(kern, wirkt, c.req.raw, version, {
+      reichweite: treffer.eintrag.reichweite ?? null,
+      // v1.4.2: kern:freigeben wirkt nie bei Agenten- oder OAuth-Zugängen, auch wenn es im Speicher stünde.
+      scopes: agentName || treffer.eintrag.art === 'oauth_zugriff' ? treffer.eintrag.scopes.filter((s) => s !== 'kern:freigeben') : treffer.eintrag.scopes,
+      vorFrage: () => kiFreigabe(nurUser(user), 'frage'),
       nurLesen: betrieb.modus === 'nur_lesen',
+      ohneKiWeg: kiVerwaltung.ohneKi(),
       kennzeichne: mitKennzeichnung,
-      ohneKi: (frage, r, s) => ohneKi(nurUser(user), frage, r, s),
+      ohneKi: (frage, r, s) => ohneKi(wirkt, frage, r, s),
       produktName: config.produktName,
-      agent: treffer.eintrag.agent ?? (treffer.eintrag.art === 'oauth_zugriff' ? treffer.eintrag.clientId : null),
+      agent: agentName,
     });
   });
 
@@ -432,7 +479,8 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     const { name, passwort } = await json(c, z.object({ name: z.string().min(1).max(100), passwort: z.string().min(1).max(500) }));
     const r = await anmelden(c, name, passwort);
     if ('fehler' in r) return r.warten ? zuViele(c, r.warten, r.fehler) : c.json({ fehler: r.fehler }, r.status as 401);
-    return c.json({ benutzer: r.user, mussPasswortAendern: !!r.d?.mussPasswortAendern });
+    // Benutzerfelder zusätzlich oben (die Oberfläche liest User direkt), `benutzer` bleibt für ältere Clients.
+    return c.json({ ...r.user, benutzer: r.user, mussPasswortAendern: !!r.d?.mussPasswortAendern, modus: betrieb.modus });
   });
 
   app.post('/api/logout', (c) => {
@@ -446,8 +494,19 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   app.get('/api/ich', async (c) => {
     const u = c.get('user');
     const d = await nutzerNachId(u.id);
+    const admin = u.rollen.includes('admin');
     return c.json({
+      ...u,
       benutzer: u,
+      // v1.4 3.2: Modus der Instanz; zusätzlich schaltet jede 423-Antwort die Leiste „Nur lesen“ ein.
+      modus: betrieb.modus,
+      produkt: { name: config.produktName },
+      ki: kiVerwaltung.ansicht(),
+      // 3.4: nur Zahlen, ohne Personenbezug; Hinweis ab 80 % bzw. 90 %, nie ein Countdown.
+      kontingent: await kontingentStand(kern, betrieb.grenzen, () => betrieb.speicherBytes()),
+      einrichtung_offen: admin && !einrichtung.stand.fertig,
+      // 3.5: Konto (Testphase, Kauf) gibt es nur mit Leitstand und nur für Admins unter GET /api/konto.
+      konto_verfuegbar: admin && !!config.leitstandUrl && !!config.kontoToken,
       betrieb: config.kern.betrieb,
       sprache: config.kern.sprache,
       provider: config.kern.provider.art,
@@ -487,7 +546,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     return c.json({ ok: true, beendet: n });
   });
 
-  const tokenAnsicht = (e: TokenEintrag) => ({ id: e.id, art: e.art, bezeichnung: e.bezeichnung, geraet: e.geraet, scopes: e.scopes, erstellt: e.erstellt, laeuftAb: e.laeuftAb, zuletzt: e.zuletzt });
+  const tokenAnsicht = (e: TokenEintrag) => ({ id: e.id, art: e.art, bezeichnung: e.bezeichnung, geraet: e.geraet, scopes: e.scopes, erstellt: e.erstellt, laeuftAb: e.laeuftAb, zuletzt: e.zuletzt, agent: e.agent ?? null, reichweite: e.reichweite ?? null });
   const TOKEN_ARTEN = ['mcp', 'api', 'oauth_zugriff', 'oauth_erneuerung'] as const;
 
   app.get('/api/ich/geraete', (c) => {
@@ -530,16 +589,36 @@ export function erstelleApp(opt: AppOptionen): KernApp {
 
   const tokenSchema = z.object({
     bezeichnung: z.string().trim().max(80).default('MCP'),
-    scopes: z.array(z.enum(ALLE_SCOPES as unknown as [Scope, ...Scope[]])).min(1).max(5).default(['kern:lesen', 'kern:fragen']),
+    scopes: z.array(z.enum(ALLE_SCOPES as unknown as [Scope, ...Scope[]])).min(1).max(6).optional(),
     gueltigTage: z.number().int().min(1).max(365).default(90),
     geraet: z.string().trim().max(120).optional(),
+    // v1.4 8.4: Agenten-Zugang mit festem Profil (leser|autor) und optionaler Reichweite.
+    agent: z.string().trim().min(1).max(80).regex(/^[\p{L}\p{N} ._-]+$/u, 'agent: Buchstaben, Ziffern, Leerzeichen, . _ -').optional(),
+    profil: z.enum(['leser', 'autor']).optional(),
+    reichweite: z.enum(['ich', 'team', 'betrieb']).optional(),
   });
+  /** Scopes eines Zugangs: Agenten nur genau nach Profil (8.4), sonst wie angefragt. */
+  const zugangsScopes = (u: User, o: { scopes?: Scope[]; agent?: string; profil?: AgentenProfil }): Scope[] => {
+    if (o.profil && !o.agent) throw ungueltig('profil gibt es nur für Agenten-Zugänge (Feld agent).');
+    if (!o.agent) {
+      const s = o.scopes ?? ['kern:lesen', 'kern:fragen'];
+      // v1.4.2: kern:freigeben nur ausdrücklich gewählt und nur mit Rolle freigeber/admin.
+      if (s.includes('kern:freigeben') && !freigebenErlaubt(u, { art: 'mcp' })) throw keineRechte('kern:freigeben braucht die Rolle freigeber oder admin.');
+      return s;
+    }
+    if (o.scopes?.includes('kern:freigeben')) throw keineRechte('kern:freigeben gibt es nie für Agenten-Zugänge (v1.4.2).');
+    const profil = o.profil ?? 'leser';
+    const soll = agentenScopes(profil) as Scope[];
+    if (o.scopes && [...new Set(o.scopes)].sort().join(' ') !== [...soll].sort().join(' ')) throw ungueltig(`Agenten-Zugänge haben feste Scopes je Profil: ${profil} = ${soll.join(' ')}.`);
+    if (profil === 'autor' && !darf(u, 'vorschlagen')) throw keineRechte('Das Profil autor braucht die Rolle "autor"; deine Rolle erlaubt nur einen Lese-Agenten.');
+    return soll;
+  };
   const erzeugeToken: KernApp['erzeugeToken'] = (u, o = {}) => {
-    const scopes = o.scopes ?? ['kern:lesen', 'kern:fragen'];
+    const scopes = zugangsScopes(u, o);
     if (scopes.includes('kern:verwalten') && !u.rollen.includes('admin')) throw keineRechte('Scope kern:verwalten nur für Admins.');
     const tage = o.gueltigTage ?? 90;
     if (!Number.isInteger(tage) || tage < 1 || tage > 365) throw ungueltig('Gültigkeit: 1 bis 365 Tage.');
-    return zugang.erzeuge(u, { art: 'mcp', bezeichnung: o.bezeichnung ?? 'MCP', scopes, gueltigSek: tage * 86400 });
+    return zugang.erzeuge(u, { art: 'mcp', bezeichnung: o.bezeichnung ?? (o.agent ? `Agent ${o.agent}` : 'MCP'), scopes, gueltigSek: tage * 86400, ...(o.agent ? { agent: o.agent } : {}), ...(o.reichweite ? { reichweite: o.reichweite } : {}) });
   };
   app.get('/api/ich/tokens', (c) => {
     const u = c.get('user');
@@ -548,10 +627,11 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   app.post('/api/ich/tokens', async (c) => {
     const u = c.get('user');
     const b = await json(c, tokenSchema);
-    const { token, eintrag } = zugang.erzeuge(u, { art: 'mcp', bezeichnung: b.bezeichnung, geraet: b.geraet, scopes: b.scopes, gueltigSek: b.gueltigTage * 86400 });
-    if (b.scopes.includes('kern:verwalten') && !u.rollen.includes('admin')) { zugang.widerrufe(u, eintrag.id); throw keineRechte('Scope kern:verwalten nur für Admins.'); }
+    const scopes = zugangsScopes(u, b);
+    if (scopes.includes('kern:verwalten') && !u.rollen.includes('admin')) throw keineRechte('Scope kern:verwalten nur für Admins.');
+    const { token, eintrag } = zugang.erzeuge(u, { art: 'mcp', bezeichnung: b.agent && b.bezeichnung === 'MCP' ? `Agent ${b.agent}` : b.bezeichnung, geraet: b.geraet, scopes, gueltigSek: b.gueltigTage * 86400, ...(b.agent ? { agent: b.agent } : {}), ...(b.reichweite ? { reichweite: b.reichweite } : {}) });
     prot(c, 'zugang_erzeugt', u.id, 'ok', eintrag.id);
-    return c.json({ token, eintrag: tokenAnsicht(eintrag), hinweis: 'Das Token wird nur jetzt angezeigt. Sicher aufbewahren.' }, 201);
+    return c.json({ token, eintrag: tokenAnsicht(eintrag), hinweis: 'Das Token wird nur jetzt angezeigt. Sicher aufbewahren.', datenfluss: f12Hinweis(config.produktName) }, 201);
   });
   app.delete('/api/ich/tokens/:tid', (c) => {
     const u = c.get('user');
@@ -637,9 +717,12 @@ export function erstelleApp(opt: AppOptionen): KernApp {
 
   app.post('/api/frage', async (c) => {
     const b = await json(c, z.object({ frage: z.string().trim().min(1).max(2000), reichweite: reichweiteSchema, sammlung: z.string().max(120).optional() }));
-    if (betrieb.modus === 'nur_lesen') return c.json(await ohneKi(c.get('user'), b.frage, b.reichweite, b.sammlung));
-    kiBudget(c.get('user'), 'frage');
-    return c.json(mitKennzeichnung(await kern.frage(c.get('user'), b.frage, { reichweite: b.reichweite, sammlung: b.sammlung })));
+    // 3.2 nur_lesen und 4.1 Weg „ohne“/„app“: wörtliche Auszüge mit Fundstelle, ehrlich als ohne KI gekennzeichnet.
+    const a = betrieb.modus === 'nur_lesen' || kiVerwaltung.ohneKi()
+      ? await ohneKi(c.get('user'), b.frage, b.reichweite, b.sammlung)
+      : (await kiFreigabe(c.get('user'), 'frage'), mitKennzeichnung(await kern.frage(c.get('user'), b.frage, { reichweite: b.reichweite, sammlung: b.sammlung })));
+    einrichtung.antwort(a as { status?: string; belege?: unknown[] });
+    return c.json(a);
   });
 
   // ---------- Hinzufügen ----------
@@ -651,6 +734,10 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     sammlung: z.string().trim().min(1).max(120).regex(/^[\p{L}\p{N}_ -]+$/u, 'Sammlung: nur Buchstaben, Ziffern, Leerzeichen, - und _').default('allgemein'),
     sichtbarkeit: sichtbarkeitSchema.default('betrieb'),
     beobachten: z.union([z.boolean(), z.enum(['true', 'false', '1', '0', 'on', ''])]).optional(),
+    // v1.4.1 U8: Quellenkopf beim Hinzufügen (Importer, z. B. Outline). zusatz als Objekt (JSON) oder JSON-Text (multipart).
+    herkunft: z.string().trim().min(1).max(500).optional(),
+    extern_id: z.string().trim().min(1).max(200).optional(),
+    zusatz: z.union([z.record(z.string(), z.unknown()), z.string().max(8000)]).optional(),
   });
 
   app.post(
@@ -675,6 +762,16 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       const r = hinzuSchema.safeParse(felder);
       if (!r.success) throw ungueltig(r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
       const f = r.data;
+      let zusatz: Record<string, unknown> | undefined;
+      if (typeof f.zusatz === 'string') {
+        if (f.zusatz.trim()) {
+          let roh: unknown;
+          try { roh = JSON.parse(f.zusatz); } catch { throw ungueltig('zusatz: JSON-Objekt erwartet.'); }
+          if (!roh || typeof roh !== 'object' || Array.isArray(roh)) throw ungueltig('zusatz: JSON-Objekt erwartet.');
+          zusatz = roh as Record<string, unknown>;
+        }
+      } else zusatz = f.zusatz;
+      if (zusatz && JSON.stringify(zusatz).length > 8000) throw ungueltig('zusatz zu groß (höchstens 8 KB).');
       const beobachten = f.beobachten === true || f.beobachten === 'true' || f.beobachten === '1' || f.beobachten === 'on';
       const art = datei ? (f.art === 'audio' ? 'audio' : 'datei') : (f.art ?? (f.url ? 'web' : 'text'));
       if ((art === 'datei' || art === 'audio') && !datei) throw ungueltig('Datei fehlt (Feld "datei").');
@@ -687,20 +784,24 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       if (sp !== null && betrieb.speicherBytes() >= sp) throw Object.assign(new KernFehler(429, 'Der Speicher eures Pakets ist voll. Suche und Wissen laufen weiter.', 'kontingent'), { grund: 'speicher' });
       const wu = uploadsMinute.nimm(user.id);
       if (wu) throw Object.assign(new KernFehler(429, 'Zu viele Uploads in kurzer Zeit.', 'zu_viele'), { retryAfter: wu });
-      if (config.kern.provider.art !== 'mock') kiBudget(user, 'ki'); // Hinzufügen kompiliert mit der KI
+      if (config.kern.provider.art !== 'mock') await kiFreigabe(user, 'ki'); // Hinzufügen kompiliert mit der KI
       let tmpOrdner: string | null = null;
       try {
         let dateiPfad: string | undefined;
         if (datei) {
-          if (datei.size > Math.min(config.maxUploadBytes, betrieb.grenzen.upload_max_bytes ?? Infinity)) throw new KernFehler(413, 'Datei zu groß.');
+          if (datei.size > Math.min(config.maxUploadBytes, betrieb.grenzen.upload_max_bytes ?? Infinity)) throw new KernFehler(413, 'Datei zu groß.', 'zu_gross');
+          const inhalt = Buffer.from(await datei.arrayBuffer());
+          // v1.4.1 U1: jeder Dateityp, Grenze aus kern.yaml, Inhalt muss zur Endung passen.
+          pruefeAnhang(datei.name, inhalt, anhangMaxBytes(leseKernYaml(config.dataDir) as Record<string, unknown>));
           tmpOrdner = path.join(config.dataDir, '.kern', 'upload', crypto.randomBytes(8).toString('hex'));
           await fsp.mkdir(tmpOrdner, { recursive: true });
           dateiPfad = path.join(tmpOrdner, sicherDateiname(datei.name));
-          await fsp.writeFile(dateiPfad, Buffer.from(await datei.arrayBuffer()));
+          await fsp.writeFile(dateiPfad, inhalt);
         }
         const ergebnis = await kern.fuegeHinzu(user, {
           art, titel: f.titel || undefined, inhalt: f.inhalt, url: f.url, dateiPfad,
           sammlung: f.sammlung, sichtbarkeit: f.sichtbarkeit as Sichtbarkeit, beobachten,
+          ...(f.herkunft ? { herkunft: f.herkunft } : {}), ...(f.extern_id ? { extern_id: f.extern_id } : {}), ...(zusatz ? { zusatz } : {}),
         });
         return c.json(ergebnis, 201);
       } finally {
@@ -711,6 +812,24 @@ export function erstelleApp(opt: AppOptionen): KernApp {
 
   // ---------- Eingang und Vorschläge ----------
   app.get('/api/eingang', async (c) => c.json(await kern.eingang(c.get('user'))));
+
+  // v1.4.1 U10: Sammelfreigabe (vor /api/eingang/:id registriert). Gleiche Rechte wie einzeln: freigeber/admin, Regeln nur admin.
+  const vorschlagsArt = z.enum(['neu', 'aenderung', 'loeschung', 'nachtrag']);
+  app.post('/api/eingang/sammel', async (c) => {
+    pruefeRecht(c, 'entscheiden');
+    const b = await json(c, z.object({
+      aktion: z.enum(['freigeben', 'ablehnen']),
+      ids: z.array(z.string().regex(ID_MUSTER)).min(1).max(500).optional(),
+      grund: z.string().trim().min(1).max(2000).optional(),
+      quelle: z.string().min(1).max(1024).optional(),
+      von: z.string().min(1).max(200).optional(),
+      art: vorschlagsArt.optional(),
+      begruendung: z.string().max(2000).optional(),
+    }).strict());
+    const user = c.get('user');
+    const r = await sammelEntscheiden(kern, user, { ids: b.ids, grund: b.grund, quelle: b.quelle, von: b.von, art: b.art }, { aktion: b.aktion, begruendung: b.begruendung });
+    return c.json({ ...r, freigegeben: b.aktion === 'freigeben' ? r.erledigt.length : 0, abgelehnt: b.aktion === 'ablehnen' ? r.erledigt.length : 0 });
+  });
 
   app.post('/api/eingang/:id', async (c) => {
     pruefeRecht(c, 'entscheiden');
@@ -739,7 +858,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   app.post('/api/vorschlag', async (c) => {
     pruefeRecht(c, 'vorschlagen');
     const b = await json(c, z.object({
-      art: z.enum(['neu', 'aenderung', 'loeschung']),
+      art: vorschlagsArt,
       ziel: z.string().min(1).max(1024),
       alt: z.string().max(5_000_000).nullable().optional(),
       neu: z.string().max(5_000_000),
@@ -749,6 +868,22 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     if (!ziel) throw ungueltig('Ziel muss ein Pfad unter wissen/ sein.');
     pruefeZiel(ziel, c.get('user'));
     return c.json(await kern.schlageVor(c.get('user'), { art: b.art, ziel, alt: b.alt ?? null, neu: b.neu, grund: b.grund }), 201);
+  });
+
+  // v1.4.1 U10: Nachtrag, `text` wird unten an den bestehenden Artikel angehängt (core prüft, dass nur angehängt wird).
+  app.post('/api/nachtrag', async (c) => {
+    pruefeRecht(c, 'vorschlagen');
+    const b = await json(c, z.object({
+      ziel: z.string().min(1).max(1024),
+      text: z.string().trim().min(1).max(1_000_000),
+      grund: z.string().trim().min(3).max(2000),
+      quelle: z.string().max(1024).optional(),
+    }).strict());
+    const ziel = artikelPfad(b.ziel);
+    if (!ziel) throw ungueltig('Ziel muss ein Pfad unter wissen/ sein.');
+    pruefeZiel(ziel, c.get('user'));
+    if (typeof kern.nachtrag !== 'function') throw new KernFehler(501, 'Nachträge kommen mit core (v1.4.1 U10).', 'nicht_verfuegbar');
+    return c.json(await kern.nachtrag(c.get('user'), { ziel, text: b.text, grund: b.grund, ...(b.quelle ? { quelle: b.quelle } : {}) }), 201);
   });
 
   // ---------- Briefing und Pflege ----------
@@ -796,15 +931,31 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       },
       managed: config.modus === 'managed',
       anbieterListe: config.modus === 'managed' ? config.anbieter.map((a) => ({ id: a.id, name: a.name, art: a.art, region: a.region ?? null })) : [],
-      ki_schluessel_gespeichert: admin ? new Geheimnisse(config.dataDir, config.geheimnisSchluessel).namen() : [],
+      ki_schluessel_gespeichert: admin ? geheimnisse.namen() : [],
+      // v1.4 8.2 und 5.1 (Annahmen W2 1 und 2 bestätigt): Prüfstatus und Voreinstellungen kommen hier mit.
+      ki: kiVerwaltung.ansicht(),
+      voreinstellungen: voreinstellungenFuer({ managed: config.modus === 'managed', anbieter: config.anbieter, testKi: config.testKi, berufsgeheimnis: config.berufsgeheimnis })
+        .map((v) => (admin ? v : { ...v, url: '' })),
+      ki_fest_durch_umgebung: kiVerwaltung.festDurchUmgebung,
+      produkt: { name: config.produktName },
+      oauth: { nur_bekannte_apps: nurBekannteApps(config) },
       ki_schluessel_moeglich: !!config.geheimnisSchluessel && config.geheimnisSchluessel.length >= 32,
       upload_max_mb: Math.round(config.maxUploadBytes / 1048576),
+      // Frische Instanz: „allgemein“ gibt es immer, damit der erste Upload ohne Anlegen einer Sammlung geht.
+      sammlungen: ['allgemein'] as string[],
       fake: config.fake,
       version,
     };
   };
 
-  app.get('/api/einstellungen', (c) => c.json(einstellungenAnsicht(c.get('user'))));
+  /** Sammlungen, die dieser Nutzer sieht; „allgemein“ immer zuerst (je Anfrage, nichts geteilt). */
+  const sammlungenVon = async (u: User): Promise<string[]> => {
+    try {
+      const n = [...new Set((await kern.listeQuellen(u)).map((q) => String(q.kopf.sammlung ?? '')).filter((x) => x && x !== 'allgemein'))].sort((a, b) => a.localeCompare(b, 'de'));
+      return ['allgemein', ...n];
+    } catch { return ['allgemein']; }
+  };
+  app.get('/api/einstellungen', async (c) => c.json({ ...einstellungenAnsicht(c.get('user')), sammlungen: await sammlungenVon(c.get('user')) }));
 
   /** Entfernt Endpunkte aus einer Datenweg-Antwort für Nicht-Admins (Region und Ort bleiben sichtbar). */
   const ohneEndpunkte = (x: unknown): unknown => {
@@ -817,8 +968,16 @@ export function erstelleApp(opt: AppOptionen): KernApp {
 
   // v1.2 (F13): Datenweg der KI
   app.get('/api/datenweg', async (c) => {
-    const d = typeof kern.datenweg === 'function' ? await kern.datenweg(c.get('user')) : bauDatenweg(config.kern.provider);
-    return c.json(c.get('user').rollen.includes('admin') ? d : ohneEndpunkte(d));
+    const u = c.get('user');
+    const d = (typeof kern.datenweg === 'function' ? await kern.datenweg(u) : bauDatenweg(config.kern.provider)) as Record<string, unknown>;
+    // 6.4: verbundene Apps des Nutzers als eigene Datenwege (Anbieter aus der CIMD-Domain, soweit bekannt).
+    const apps = new Map<string, { name: string; anbieter: string | null }>();
+    for (const e of zugang.liste(u, u.id, { art: ['oauth_zugriff', 'oauth_erneuerung'] })) {
+      const id = e.clientId ?? e.id;
+      if (!apps.has(id)) apps.set(id, { name: e.agent ?? e.bezeichnung.replace(/^OAuth /, ''), anbieter: /^https:\/\//.test(id) ? new URL(id).hostname : null });
+    }
+    const mitApps = { ...d, apps: [...apps.values()], ki_status: kiVerwaltung.status(), ...(apps.size ? { apps_hinweis: f12Hinweis(config.produktName) } : {}) };
+    return c.json(u.rollen.includes('admin') ? mitApps : ohneEndpunkte(mitApps));
   });
 
   // H2: Selbstbetrieb: freie Adresse erlaubt (mit Warnung), apiKeyEnv nur aus der Erlaubnisliste.
@@ -844,6 +1003,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       sprache: z.enum(['de', 'en']).optional(),
       teams: z.array(z.string().trim().min(1).max(60).regex(/^[\p{L}\p{N}_ -]+$/u)).max(100).optional(),
       provider: (config.modus === 'managed' ? providerManaged : providerSelbst).optional(),
+      oauth: z.object({ nur_bekannte_apps: z.boolean() }).strict().optional(),
     }).strict());
     let provider: Record<string, unknown> | undefined = b.provider as Record<string, unknown> | undefined;
     if (provider && config.modus === 'managed') {
@@ -856,26 +1016,39 @@ export function erstelleApp(opt: AppOptionen): KernApp {
       try { host = new URL(String(provider.url)).host; } catch { /* oben geprüft */ }
       warnungen.push(`Freier KI-Endpunkt ${host}: Fragen und Abschnitte${provider.apiKeyEnv ? ' sowie der Schlüssel aus ' + String(provider.apiKeyEnv) : ''} gehen dorthin. Nur im Selbstbetrieb erlaubt.`);
     }
-    if (typeof kern.speichereEinstellungen === 'function') {
+    // 8.2: jeder Anbieterwechsel setzt `ungeprueft` und merkt den bisherigen Anbieter als Rückweg.
+    if (provider) {
+      const alt = kiVerwaltung.lies();
+      provider = { ...provider, weg: provider.art === 'mock' ? 'ohne' : 'eigener_schluessel', status: provider.art === 'mock' ? 'ohne_ki' : 'ungeprueft', vorher: ohneGeheimnis(alt as KiBlock) } as Record<string, unknown>;
+    }
+    const yAlt = leseKernYaml(config.dataDir);
+    const oauthNeu = b.oauth ? { ...((yAlt.oauth as object | undefined) ?? {}), nur_bekannte_apps: b.oauth.nur_bekannte_apps } : undefined;
+    // Der KI-Block wird danach über kiVerwaltung geschrieben (ein Commit dafür, Anbieter sofort, wenn core es kann).
+    if (typeof kern.speichereEinstellungen === 'function' && (b.betrieb || b.sprache || b.teams || oauthNeu)) {
       // core schreibt kern.yaml und committet; der KI-Anbieter heißt dort "ki".
       const aenderung: Record<string, unknown> = {};
       if (b.betrieb) aenderung.betrieb = b.betrieb;
       if (b.sprache) aenderung.sprache = b.sprache;
       if (b.teams) aenderung.teams = b.teams;
-      if (provider) aenderung.ki = provider;
+      if (oauthNeu) aenderung.oauth = oauthNeu;
       await kern.speichereEinstellungen(c.get('user'), aenderung);
-    } else {
+    } else if (typeof kern.speichereEinstellungen !== 'function') {
       const y = leseKernYaml(config.dataDir);
       if (b.betrieb) y.betrieb = b.betrieb;
       if (b.sprache) y.sprache = b.sprache;
       if (b.teams) y.teams = b.teams;
-      if (provider) { y.provider = provider; delete y.ki; }
+      if (oauthNeu) y.oauth = oauthNeu;
       schreibeKernYaml(config.dataDir, y);
+    }
+    let sofort = false;
+    if (provider) {
+      const r = await kiVerwaltung.speichere(c.get('user'), provider as KiBlock).catch(() => ({ sofort: false }));
+      sofort = r.sofort;
     }
     if (b.betrieb) config.kern.betrieb = b.betrieb;
     if (b.sprache) config.kern.sprache = b.sprache;
     prot(c, 'einstellungen', c.get('user').id);
-    return c.json({ ...einstellungenAnsicht(c.get('user')), warnungen, hinweis: provider ? 'Der KI-Anbieter wird nach einem Neustart des Servers aktiv. API-Schlüssel nur per Umgebungsvariable.' : null });
+    return c.json({ ...einstellungenAnsicht(c.get('user')), warnungen, hinweis: provider ? (sofort ? 'Neuer KI-Anbieter ist aktiv. Bitte die Prüfbank laufen lassen (Status: ungeprüft).' : 'Der KI-Anbieter wird nach einem Neustart des Servers aktiv. API-Schlüssel nur per Umgebungsvariable.') : null });
   });
 
   // D-L5: Sicherheitsprotokoll, nur admin.
@@ -898,7 +1071,6 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   });
 
   // v1.4 5.2: KI-Schlüssel nur schreiben, nie zurückgeben; Managed nur für Anbieter der Liste (H2).
-  const geheimnisse = new Geheimnisse(config.dataDir, config.geheimnisSchluessel);
   app.put('/api/einstellungen/ki-schluessel', async (c) => {
     pruefeRecht(c, 'verwalten');
     const b = await json(c, z.object({ anbieter: z.string().regex(/^[a-z0-9_-]{1,40}$/), schluessel: z.string().min(8).max(500) }).strict());
@@ -919,11 +1091,11 @@ export function erstelleApp(opt: AppOptionen): KernApp {
   // v1.4 3.5: Konto-Brücke zum Leitstand (nur admin). Selbstbetrieb ohne KERN_LEITSTAND_URL: 404, die UI blendet aus.
   const KONTO_AKTIONEN = new Set(['kaufen', 'stufe', 'kuendigen', 'kuendigung-zuruecknehmen', 'test-verlaengern', 'loeschen', 'umzug', 'egress-anfrage']);
   const leitstand = async (methode: 'GET' | 'POST', pfad: string, body?: unknown, idem?: string) => {
-    const r = await fetch(`${config.leitstandUrl}/v1/konto${pfad}`, {
+    const r = await egress(`${config.leitstandUrl}/v1/konto${pfad}`, {
       method: methode,
       headers: { authorization: `Bearer ${config.kontoToken}`, accept: 'application/json', ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(idem ? { 'idempotency-key': idem } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(10_000),
+      zeitMs: 10_000,
       redirect: 'error',
     });
     const text = (await r.text()).slice(0, 64 * 1024);
@@ -994,7 +1166,7 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     const ich = c.get('user');
     if (c.req.param('id') !== ich.id) throw nichtGefunden('Tokens kann nur jeder für sich selbst anlegen.');
     const b = await json(c, tokenSchema);
-    const { token, eintrag } = erzeugeToken(ich, { bezeichnung: b.bezeichnung, scopes: b.scopes, gueltigTage: b.gueltigTage });
+    const { token, eintrag } = erzeugeToken(ich, { bezeichnung: b.bezeichnung, scopes: b.scopes, gueltigTage: b.gueltigTage, agent: b.agent, profil: b.profil, reichweite: b.reichweite });
     prot(c, 'zugang_erzeugt', ich.id, 'ok', eintrag.id);
     return c.json({ token, eintrag: tokenAnsicht(eintrag), hinweis: 'Das Token wird nur jetzt angezeigt. Sicher aufbewahren.' }, 201);
   });
@@ -1032,6 +1204,13 @@ export function erstelleApp(opt: AppOptionen): KernApp {
     kontoSperre.zuruecksetzen(ziel.name);
     prot(c, 'entsperrt', c.get('user').id, 'ok', ziel.id);
     return c.json({ ok: true });
+  });
+
+  // v1.4: Einrichtung, Export, Import, Prüfbank, Kontextbilanz, Ausstiegsprobe, Kontextpaket, v1.3-Lesen.
+  v14Routen({
+    app: app as unknown as Hono, kern, config, betrieb, geheimnisse, abruf: egressKi, exporte, ki: kiVerwaltung, einrichtung,
+    json, pruefeRecht: (c, a) => pruefeRecht(c as Context<Env>, a), prot: (c, e, b2, er, z2) => prot(c, e, b2, er, z2),
+    kiFreigabe, basisUrl, einstellungenAnsicht: (u) => einstellungenAnsicht(u) as Record<string, unknown>,
   });
 
   app.all('/api/*', (c) => c.json({ fehler: 'Unbekannter Endpunkt.' }, 404));

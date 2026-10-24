@@ -292,6 +292,9 @@ paths:
                 sammlung: { type: string, default: allgemein }
                 sichtbarkeit: { $ref: '#/components/schemas/Sichtbarkeit' }
                 beobachten: { type: string, enum: ['true', 'false'] }
+                herkunft: { type: string, maxLength: 500, description: 'v1.4.1 U8, z. B. Outline-Adresse' }
+                extern_id: { type: string, maxLength: 200, description: 'v1.4.1 U8: gleiche ID in derselben Sammlung ersetzt die alte Fassung' }
+                zusatz: { type: string, description: 'v1.4.1 U8: JSON-Objekt als Text, höchstens 8 KB, Pflichtfelder geschützt' }
           application/json:
             schema:
               type: object
@@ -303,6 +306,9 @@ paths:
                 sammlung: { type: string }
                 sichtbarkeit: { $ref: '#/components/schemas/Sichtbarkeit' }
                 beobachten: { type: boolean }
+                herkunft: { type: string }
+                extern_id: { type: string }
+                zusatz: { type: object }
       responses:
         '201':
           description: angelegt
@@ -314,7 +320,8 @@ paths:
                   quelle: { $ref: '#/components/schemas/Quelle' }
                   vorschlaege: { type: array, items: { $ref: '#/components/schemas/Vorschlag' } }
         '403': { $ref: '#/components/responses/Fehler' }
-        '413': { description: 'Datei zu groß (KERN_MAX_UPLOAD_MB, Standard 50)' }
+        '413': { description: 'Datei zu groß (KERN_MAX_UPLOAD_MB, Standard 50; Anhänge kern.yaml anhaenge.max_mb, Standard 25), code zu_gross' }
+        '415': { description: 'v1.4.1 U1: Inhalt passt nicht zur Endung, code typ_passt_nicht' }
   /api/eingang:
     get:
       summary: Offene Vorschläge (Freigeber alle, sonst eigene)
@@ -353,7 +360,7 @@ paths:
               type: object
               required: [art, ziel, neu, grund]
               properties:
-                art: { type: string, enum: [neu, aenderung, loeschung] }
+                art: { type: string, enum: [neu, aenderung, loeschung, nachtrag], description: 'nachtrag (v1.4.1 U10): neu muss mit dem bisherigen Text beginnen' }
                 ziel: { type: string, description: Pfad unter wissen/ }
                 alt: { type: [string, 'null'] }
                 neu: { type: string }
@@ -361,6 +368,59 @@ paths:
       responses:
         '201': { description: angelegt, content: { application/json: { schema: { $ref: '#/components/schemas/Vorschlag' } } } }
         '400': { description: 'Ungültig, z. B. Ziel außerhalb wissen/ oder reservierter Name index.md/log.md (v1.2)' }
+  /api/nachtrag:
+    post:
+      summary: 'v1.4.1 U10: Nachtrag (Rolle autor), text wird unten an den Artikel angehängt'
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ziel, text, grund]
+              properties: { ziel: { type: string }, text: { type: string }, grund: { type: string, minLength: 3 }, quelle: { type: string } }
+      responses:
+        '201': { description: Vorschlag mit art nachtrag, content: { application/json: { schema: { $ref: '#/components/schemas/Vorschlag' } } } }
+        '403': { description: Rolle fehlt oder CSRF-Header fehlt }
+        '404': { description: Ziel gibt es nicht }
+  /api/eingang/sammel:
+    post:
+      summary: 'v1.4.1 U10: Sammelfreigabe (freigeber, admin; Regeln nur admin). Mindestens ein Filter.'
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [aktion]
+              properties:
+                aktion: { type: string, enum: [freigeben, ablehnen] }
+                ids: { type: array, items: { type: string }, maxItems: 500 }
+                grund: { type: string }
+                quelle: { type: string }
+                von: { type: string, description: 'z. B. agent/<name>@<userId>' }
+                art: { type: string, enum: [neu, aenderung, loeschung, nachtrag] }
+                begruendung: { type: string }
+      responses:
+        '200': { description: '{ erledigt[], konflikte[], fehler[{id, meldung}], gefunden, freigegeben, abgelehnt }' }
+        '400': { description: kein Filter }
+        '403': { description: Rolle fehlt oder CSRF-Header fehlt }
+  /api/ich/notizen/abgelaufen:
+    get:
+      summary: 'v1.4 8.5: eigene Agenten-Notizen älter als notizen.ablauf_tage'
+      security: [{ sitzung: [] }]
+      responses:
+        '200': { description: '{ ablauf_tage, pfade: ["/memories/notizen/…"] }' }
+  /api/ich/notizen/abgelaufen/loeschen:
+    post:
+      summary: 'v1.4 8.5: abgelaufene eigene Notizen löschen (Rolle autor); ohne pfade alle abgelaufenen'
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { pfade: { type: array, items: { type: string } } } } } }
+      responses:
+        '200': { description: '{ geloescht[], fehler[], nicht_abgelaufen[] }' }
   /api/pruefen:
     post:
       summary: Aufräumlauf (v1.1, Rolle freigeber oder admin). Mechanische Vorschläge landen im Eingang.

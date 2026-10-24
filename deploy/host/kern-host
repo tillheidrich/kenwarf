@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# kern-host: Instanzen auf einem geteilten Kern-Host anlegen, begrenzen, entfernen (O1 1.8, CONTRACT v1.4 3.1, 3.7).
+# Der Leitstand (A1) ruft dieses Skript per SSH auf; jede Ausgabe für den Leitstand ist eine JSON-Zeile auf stdout,
+# Meldungen für Menschen gehen nach stderr. Keine Inhalte der Instanzen, nur Betriebsdaten.
+#
+#   kern-host einrichten
+#   kern-host anlegen   <id> <subdomain> <paket> [--web-offen 0|1] [--betrieb NAME] [--leitstand-url URL] [--konto-token-datei DATEI]
+#   kern-host grenzen   <id> <paket>                Grenzen im laufenden Betrieb ändern (docker update)
+#   kern-host status    <id>                        Zustand, Belegung, Grenzen (Zahlen)
+#   kern-host betrieb   <id> GET|POST <pfad> [json] /_betrieb/* der Instanz aus dem Host aufrufen (mit Betriebs-Token)
+#   kern-host entfernen <id> [--daten-loeschen]     Container, Netz, Freigaben weg; Daten nur mit Schalter
+#   kern-host liste
+#
+# Umgebung (Datei $KERN_BASIS/host.env wird gelesen, falls vorhanden):
+#   KERN_BASIS=/srv/kern  KERN_IMAGE=kern:latest  KERN_MANAGED_DOMAIN=<domain>  KERN_NETZ_POOL=10.231
+#   KERN_QUOTA=pflicht|aus (Standard pflicht: ohne XFS-Kontingent wird nicht angelegt)  KERN_IO_GERAET=/dev/sdb (optional)
+#   KERN_EGRESS_IP=10.230.0.3  KERN_CADDY_IP=10.230.0.2  KERN_HEALTH_SEK=120
+set -euo pipefail
+
+HIER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KERN_BASIS="${KERN_BASIS:-/srv/kern}"
+[ -f "$KERN_BASIS/host.env" ] && { set -a; . "$KERN_BASIS/host.env"; set +a; }
+KERN_IMAGE="${KERN_IMAGE:-kern:latest}"
+KERN_NETZ_POOL="${KERN_NETZ_POOL:-10.231}"
+KERN_QUOTA="${KERN_QUOTA:-pflicht}"
+KERN_HEALTH_SEK="${KERN_HEALTH_SEK:-120}"
+PAKETE="${KERN_PAKETE:-$HIER/pakete.json}"
+ANBIETER="${KERN_ANBIETER:-$HIER/anbieter.json}"
+EGRESS_DIR="$KERN_BASIS/egress"
+
+meldung() { echo "kern-host: $*" >&2; }
+fehler() { printf '{"ok":false,"fehler":"%s"}\n' "$1"; meldung "$1"; exit "${2:-1}"; }
+pruefe_id() { [[ "$1" =~ ^i_[a-z0-9]{10}$ ]] || fehler "ungültige Instanz-ID" 2; }
+zufall() { head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+sha() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+bruecke() { echo "kb-${1#i_}"; }
+paketwert() { jq -er --arg p "$1" --arg k "$2" '.[$p][$k]' "$PAKETE" 2>/dev/null || fehler "Paket $1 oder Wert $2 unbekannt" 2; }
+ms() { date +%s%3N; }
+
+schreibe_atomar() { # datei inhalt modus
+  local tmp; tmp="$(mktemp "$1.XXXXXX")"; printf '%s\n' "$2" > "$tmp"; chmod "$3" "$tmp"; mv "$tmp" "$1"
+}
+
+freies_netz() {
+  local belegt i a b
+  belegt="$(docker network ls -q --filter label=kern.instanz | xargs -r docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}')"
+  for ((i = 0; i < 4096; i++)); do
+    a=$((i / 16)); b=$(((i % 16) * 16))
+    if ! grep -qw "$KERN_NETZ_POOL.$a.$b/28" <<< "$belegt"; then echo "$KERN_NETZ_POOL.$a.$b"; return; fi
+  done
+  fehler "kein freies Instanznetz im Pool $KERN_NETZ_POOL.0.0/16"
+}
+
+io_flags() {
+  local p="$1"
+  [ -n "${KERN_IO_GERAET:-}" ] || return 0
+  printf -- '--device-read-bps %s:%s --device-write-bps %s:%s' "$KERN_IO_GERAET" "$(paketwert "$p" io_lesen)" "$KERN_IO_GERAET" "$(paketwert "$p" io_schreiben)"
+}
+
+cmd_einrichten() {
+  [ -n "${KERN_MANAGED_DOMAIN:-}" ] || fehler "KERN_MANAGED_DOMAIN fehlt (Schalter S-2)" 2
+  install -d -m 0755 "$KERN_BASIS" "$KERN_BASIS/instanzen"
+  install -d -m 0700 "$KERN_BASIS/geheim"
+  install -d -m 0750 -o 1000 -g 1000 "$EGRESS_DIR" "$EGRESS_DIR/instanzen" "$EGRESS_DIR/freigaben" "$KERN_BASIS/caddy" "$KERN_BASIS/caddy/data" "$KERN_BASIS/caddy/config"
+  if [ ! -s "$EGRESS_DIR/admin-token" ]; then
+    umask 077; zufall > "$EGRESS_DIR/admin-token"; chown 1000:1000 "$EGRESS_DIR/admin-token"; chmod 0400 "$EGRESS_DIR/admin-token"
+    meldung "Verwaltungs-Token für den Leitstand: $EGRESS_DIR/admin-token"
+  fi
+  install -m 0644 "$ANBIETER" "$EGRESS_DIR/anbieter.json"
+  local hosts='[]'
+  [ -n "${KERN_LEITSTAND_HOSTS:-}" ] && hosts="$(printf '%s' "$KERN_LEITSTAND_HOSTS" | jq -Rc 'split(",")|map(select(length>0))')"
+  schreibe_atomar "$EGRESS_DIR/global.json" "$(jq -nc --arg d "$KERN_MANAGED_DOMAIN" --argjson h "$hosts" --argjson z "${KERN_GESPERRT_ZUSATZ:-[]}" '{managed_domain:$d, leitstand_hosts:$h, gesperrt_zusatz:$z}')" 0644
+  chown 1000:1000 "$EGRESS_DIR/global.json" "$EGRESS_DIR/anbieter.json"
+  local zusatz=()
+  for f in ${KERN_COMPOSE_ZUSATZ:-}; do zusatz+=(-f "$f"); done
+  KERN_BASIS="$KERN_BASIS" docker compose -p kern-host -f "$HIER/compose.yml" "${zusatz[@]}" up -d --quiet-pull >&2
+  "$HIER/nft-kern.sh" anwenden >&2 || meldung "WARNUNG: nftables nicht gesetzt, es gilt nur die Docker-Sperre"
+  printf '{"ok":true,"aktion":"einrichten","basis":"%s"}\n' "$KERN_BASIS"
+}
+
+cmd_anlegen() {
+  local id="$1" sub="$2" paket="$3"; shift 3
+  pruefe_id "$id"
+  [[ "$sub" =~ ^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$ ]] || fehler "ungültige Subdomain" 2
+  [ -n "${KERN_MANAGED_DOMAIN:-}" ] || fehler "KERN_MANAGED_DOMAIN fehlt" 2
+  local web_offen=1 betrieb="Mein Betrieb" leitstand_url="" konto_datei=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --web-offen) web_offen="$2"; shift 2 ;;
+      --betrieb) betrieb="$2"; shift 2 ;;
+      --leitstand-url) leitstand_url="$2"; shift 2 ;;
+      --konto-token-datei) konto_datei="$2"; shift 2 ;;
+      *) fehler "unbekannter Schalter $1" 64 ;;
+    esac
+  done
+  local t0; t0="$(ms)"
+  local name="kern-$id" netzname="kn-$id" o="$KERN_BASIS/instanzen/$id"
+  # Idempotent: läuft der Container schon, nur Ergebnis melden
+  if docker inspect "$name" >/dev/null 2>&1; then
+    printf '{"ok":true,"id":"%s","schon_vorhanden":true}\n' "$id"; return 0
+  fi
+  if grep -lq "\"subdomain\":\"$sub\"" "$EGRESS_DIR"/instanzen/*.json 2>/dev/null; then fehler "Subdomain vergeben" 3; fi
+  local cpus ram res pids platte upload
+  cpus="$(paketwert "$paket" cpus)"; ram="$(paketwert "$paket" ram)"; res="$(paketwert "$paket" ram_reservierung)"
+  pids="$(paketwert "$paket" pids)"; platte="$(paketwert "$paket" platte_geteilt)"; upload="$(paketwert "$paket" upload_mb)"
+
+  install -d -m 0750 "$o"
+  install -d -m 0700 -o 1000 -g 1000 "$o/daten" "$o/daten-export"
+  # Plattenkontingent (XFS-Projekt). Ohne Kontingent wird im Managed-Betrieb nicht angelegt.
+  if [ "$KERN_QUOTA" = pflicht ]; then
+    "$HIER/kern-quota.sh" pruefen "$KERN_BASIS" || fehler "kein XFS-Projektkontingent unter $KERN_BASIS (KERN_QUOTA=aus nur für Tests)" 5
+    "$HIER/kern-quota.sh" setzen "$KERN_BASIS" "$o" "$id" "$platte" >&2
+  else
+    meldung "WARNUNG: ohne Plattenkontingent (KERN_QUOTA=aus)"
+  fi
+
+  # Geheimnisse je Instanz: Sitzungsschlüssel, Betriebs-Token, Egress-Token. Nur in dieser Datei (root, 0600).
+  local secret betrieb_token egress_token konto_token=""
+  secret="$(zufall)"; betrieb_token="$(zufall)"; egress_token="$(zufall)"
+  [ -n "$konto_datei" ] && konto_token="$(cat "$konto_datei")"
+  local basisnetz; basisnetz="$(freies_netz)"
+  local netz_cidr="${basisnetz}/28" ip_caddy ip_egress ip_kern pre="${basisnetz%.*}" last="${basisnetz##*.}"
+  ip_caddy="$pre.$((last + 2))"; ip_egress="$pre.$((last + 3))"; ip_kern="$pre.$((last + 4))"
+  local proxy="http://$id:$egress_token@kern-egress:3128"
+  schreibe_atomar "$o/instanz.env" "$(cat <<EOF
+NODE_ENV=production
+KERN_MODUS=managed
+KERN_MANAGED=1
+KERN_BETRIEB=$betrieb
+KERN_SECRET=$secret
+KERN_BETRIEB_TOKEN=$betrieb_token
+KERN_PUBLIC_URL=https://$sub.$KERN_MANAGED_DOMAIN
+KERN_TRUST_PROXY=1
+KERN_TRUST_PROXY_HOPS=1
+KERN_SECURE_COOKIE=1
+KERN_ERSTZUGANG=datei
+KERN_MAX_UPLOAD_MB=$upload
+KERN_ANBIETER_DATEI=/etc/kern/anbieter.json
+HTTPS_PROXY=$proxy
+HTTP_PROXY=$proxy
+NO_PROXY=localhost,127.0.0.1
+NODE_USE_ENV_PROXY=1
+KERN_KI_PROXY=http://$id.ki:$egress_token@kern-egress:3128
+KERN_LEITSTAND_URL=$leitstand_url
+KERN_KONTO_TOKEN=$konto_token
+EOF
+)" 0600
+
+  # Netz: internal (kein Weg nach draußen), eigene Bridge kb-<id> für nftables, Caddy und Proxy hängen mit festen Adressen dran
+  docker network create --internal --driver bridge --subnet "$netz_cidr" --gateway "$pre.$((last + 1))" \
+    -o "com.docker.network.bridge.name=$(bruecke "$id")" -o com.docker.network.bridge.enable_icc=true \
+    --label "kern.instanz=$id" "$netzname" >/dev/null
+  docker network connect --ip "$ip_caddy" "$netzname" kern-caddy
+  docker network connect --ip "$ip_egress" "$netzname" kern-egress
+  schreibe_atomar "$EGRESS_DIR/instanzen/$id.json" "$(jq -nc --arg id "$id" --arg s "$sub" --arg t "$(sha "$egress_token")" --arg ip "$ip_egress" --argjson w "$([ "$web_offen" = 1 ] && echo true || echo false)" '{id:$id, subdomain:$s, token_sha256:$t, web_offen:$w, netz_ip:$ip}')" 0640
+  chown 1000:1000 "$EGRESS_DIR/instanzen/$id.json"
+  "$HIER/nft-kern.sh" anwenden >&2 || meldung "WARNUNG: nftables nicht gesetzt"
+
+  # shellcheck disable=SC2046
+  docker run -d --name "$name" --hostname kern \
+    --network "$netzname" --ip "$ip_kern" --network-alias "inst-$sub" \
+    --restart unless-stopped \
+    --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m \
+    --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges:true \
+    --cpus "$cpus" --memory "$ram" --memory-swap "$ram" --memory-reservation "$res" --pids-limit "$pids" \
+    --ulimit nofile=4096:4096 $(io_flags "$paket") \
+    --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+    --label "kern.instanz=$id" --label "kern.paket=$paket" --label "kern.subdomain=$sub" \
+    --env-file "$o/instanz.env" \
+    -v "$o/daten:/daten" -v "$o/daten-export:/daten-export" -v "$EGRESS_DIR/anbieter.json:/etc/kern/anbieter.json:ro" \
+    "$KERN_IMAGE" >/dev/null
+
+  local i status=""
+  for ((i = 0; i < KERN_HEALTH_SEK * 2; i++)); do
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo fehlt)"
+    [ "$status" = healthy ] && break
+    [ "$status" = unhealthy ] && break
+    sleep 0.5
+  done
+  [ "$status" = healthy ] || fehler "Instanz nicht gesund ($status)" 6
+  local dauer=$(( $(ms) - t0 ))
+  jq -nc --arg id "$id" --arg url "https://$sub.$KERN_MANAGED_DOMAIN" --arg netz "$netz_cidr" --arg ip "$ip_kern" \
+    --arg bt "$betrieb_token" --argjson ms "$dauer" --arg paket "$paket" \
+    '{ok:true, id:$id, url:$url, paket:$paket, netz:$netz, ip:$ip, betrieb_token:$bt, dauer_ms:$ms}'
+}
+
+cmd_grenzen() {
+  local id="$1" paket="$2"; pruefe_id "$id"
+  local ram; ram="$(paketwert "$paket" ram)"
+  docker update --cpus "$(paketwert "$paket" cpus)" --memory "$ram" --memory-swap "$ram" \
+    --memory-reservation "$(paketwert "$paket" ram_reservierung)" --pids-limit "$(paketwert "$paket" pids)" "kern-$id" >/dev/null
+  if [ "$KERN_QUOTA" = pflicht ]; then "$HIER/kern-quota.sh" setzen "$KERN_BASIS" "$KERN_BASIS/instanzen/$id" "$id" "$(paketwert "$paket" platte_geteilt)" >&2; fi
+  printf '{"ok":true,"id":"%s","paket":"%s"}\n' "$id" "$paket"
+}
+
+cmd_status() {
+  local id="$1"; pruefe_id "$id"
+  local name="kern-$id"
+  docker inspect "$name" >/dev/null 2>&1 || fehler "unbekannt" 4
+  local belegt="null"
+  if [ "$KERN_QUOTA" = pflicht ]; then belegt="$("$HIER/kern-quota.sh" zeigen "$KERN_BASIS" "$id" 2>/dev/null || echo null)"; else belegt="$(du -sb "$KERN_BASIS/instanzen/$id/daten" 2>/dev/null | cut -f1 || echo null)"; fi
+  docker inspect "$name" | jq -c --argjson b "$belegt" '.[0] | {ok:true, id:(.Config.Labels["kern.instanz"]), paket:(.Config.Labels["kern.paket"]),
+    zustand:.State.Status, gesund:(.State.Health.Status // null), neustarts:.RestartCount,
+    grenzen:{nano_cpus:.HostConfig.NanoCpus, ram:.HostConfig.Memory, swap:.HostConfig.MemorySwap, pids:.HostConfig.PidsLimit},
+    nur_lesen:.HostConfig.ReadonlyRootfs, caps:.HostConfig.CapDrop, belegt_bytes:$b}'
+}
+
+cmd_betrieb() {
+  local id="$1" methode="$2" pfad="$3" daten="${4:-}"; pruefe_id "$id"
+  [[ "$pfad" =~ ^/_betrieb/[a-z/]+$ ]] || fehler "nur /_betrieb/*" 2
+  local ip tok
+  ip="$(docker inspect -f "{{(index .NetworkSettings.Networks \"kn-$id\").IPAddress}}" "kern-$id")"
+  tok="$(grep '^KERN_BETRIEB_TOKEN=' "$KERN_BASIS/instanzen/$id/instanz.env" | cut -d= -f2-)"
+  curl -sS --max-time 30 -X "$methode" -H "authorization: Bearer $tok" -H 'content-type: application/json' \
+    ${daten:+--data "$daten"} "http://$ip:7480$pfad"
+  echo
+}
+
+cmd_entfernen() {
+  local id="$1"; shift; pruefe_id "$id"
+  local loeschen=0; [ "${1:-}" = --daten-loeschen ] && loeschen=1
+  docker rm -f "kern-$id" >/dev/null 2>&1 || true
+  docker network disconnect -f "kn-$id" kern-caddy >/dev/null 2>&1 || true
+  docker network disconnect -f "kn-$id" kern-egress >/dev/null 2>&1 || true
+  docker network rm "kn-$id" >/dev/null 2>&1 || true
+  rm -f "$EGRESS_DIR/instanzen/$id.json" "$EGRESS_DIR/freigaben/$id.json"
+  "$HIER/nft-kern.sh" anwenden >&2 || true
+  local entfernt='["container","netz","egress_freigaben"]'
+  if [ "$loeschen" = 1 ]; then
+    entfernt='["container","netz","egress_freigaben","datenordner","geheimnisse"'
+    if [ "$KERN_QUOTA" = pflicht ]; then "$HIER/kern-quota.sh" loeschen "$KERN_BASIS" "$id" >&2 && entfernt+=',"kontingent"'; fi
+    rm -rf --one-file-system "${KERN_BASIS:?}/instanzen/$id"
+    command -v fstrim >/dev/null && fstrim "$KERN_BASIS" 2>/dev/null || true
+    entfernt+=']'
+  fi
+  printf '{"ok":true,"id":"%s","entfernt":%s}\n' "$id" "$entfernt"
+}
+
+cmd_liste() {
+  docker ps -a --filter label=kern.instanz --format '{{.Label "kern.instanz"}} {{.Label "kern.paket"}} {{.Status}}' |
+    jq -Rsc 'split("\n")|map(select(length>0)|split(" ")|{id:.[0], paket:.[1], zustand:(.[2:]|join(" "))})'
+}
+
+befehl="${1:-}"; shift || true
+case "$befehl" in
+  einrichten) cmd_einrichten ;;
+  anlegen) [ $# -ge 3 ] || fehler "anlegen <id> <subdomain> <paket>" 64; cmd_anlegen "$@" ;;
+  grenzen) [ $# -eq 2 ] || fehler "grenzen <id> <paket>" 64; cmd_grenzen "$@" ;;
+  status) [ $# -eq 1 ] || fehler "status <id>" 64; cmd_status "$1" ;;
+  betrieb) [ $# -ge 3 ] || fehler "betrieb <id> <methode> <pfad> [json]" 64; cmd_betrieb "$@" ;;
+  entfernen) [ $# -ge 1 ] || fehler "entfernen <id>" 64; cmd_entfernen "$@" ;;
+  liste) cmd_liste ;;
+  *) sed -n '2,20p' "$0" >&2; exit 64 ;;
+esac

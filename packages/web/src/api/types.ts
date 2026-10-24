@@ -14,6 +14,14 @@ export interface User {
   mussPasswortAendern?: boolean;
   /** v1.4 3.2, Annahme W2: Modus der Instanz kommt mit GET /api/ich */
   modus?: 'normal' | 'nur_lesen' | 'pausiert';
+  /** S2 (GET /api/ich): Zusatzfelder für die Oberfläche */
+  produkt?: { name: string };
+  ki?: { status: KiStatus; weg: KiWeg | null; voreinstellung: string | null; vorher: boolean };
+  einrichtung_offen?: boolean;
+  konto_verfuegbar?: boolean;
+  provider?: ProviderArt;
+  hinweis?: string | null;
+  darf?: { hinzufuegen: boolean; vorschlagen: boolean; entscheiden: boolean; verwalten: boolean };
 }
 
 export interface FundstelleKopf {
@@ -26,6 +34,8 @@ export interface FundstelleKopf {
 
 export interface Fundstelle extends FundstelleKopf {
   zitat: string;
+  /** core (S1 M4): Beleg stammt aus einer Web-Quelle */
+  web?: boolean;
 }
 
 export interface ArtikelKopf {
@@ -115,7 +125,7 @@ export interface Treffer {
 
 export interface Antwort {
   status: 'beantwortet' | 'steht_nicht_drin' | 'gehoert_nicht_hierher';
-  punkte: { text: string; belege: number[] }[];
+  punkte: { text: string; belege: number[]; /** core: Stützprüfung des Punkttexts gegen das Zitat */ gestuetzt?: 'ja' | 'teilweise' | 'unklar' }[];
   belege: Fundstelle[];
   hinweis: string;
   /** v1.4 D-L13 (Art. 50 KI-VO) */
@@ -159,7 +169,7 @@ export interface Datenweg {
   apps?: { name: string; anbieter: string | null }[];
 }
 
-export type ImportArt = 'obsidian' | 'notion' | 'outline' | 'confluence' | 'markdown' | 'okf';
+export type ImportArt = 'obsidian' | 'notion' | 'outline' | 'confluence' | 'markdown' | 'okf' | 'kern-zip';
 
 /** v1.2 Status der Quellenbeobachtung. Annahme: optional im Quellen-Kopf. */
 export interface Beobachtung {
@@ -211,7 +221,7 @@ export interface Einstellungen {
   /** Server F1: nur im Managed-Betrieb, freigegebene Anbieter */
   anbieterListe?: KiAnbieter[];
   /** v1.4 8.2: Prüfstatus des KI-Anbieters (aus kern.yaml ki.status); Annahme W2: kommt über GET /api/einstellungen */
-  ki?: { status: KiStatus; voreinstellung?: string | null; vorher?: boolean };
+  ki?: { status: KiStatus; weg?: KiWeg | null; voreinstellung?: string | null; vorher?: boolean };
   /** v1.4 5.1; Annahme W2: Liste der Voreinstellungen kommt mit GET /api/einstellungen */
   voreinstellungen?: KiVoreinstellung[];
 }
@@ -230,6 +240,8 @@ export interface KiVoreinstellung {
   region: 'lokal' | 'eu' | 'usa' | 'unbekannt';
   quelle_geprueft: string | null;
   managed_erlaubt: boolean;
+  /** S2: ein Satz zum Datenfluss (bei USA mit Drittland), neutral anzeigen */
+  datenfluss?: string;
 }
 
 /** v1.4 4.1 */
@@ -240,6 +252,9 @@ export interface Einrichtung {
   vorschlagsfragen: string[];
   erste_belegte_antwort: { am: string; sekunden_seit_start: number } | null;
   test_ki_verfuegbar: boolean;
+  /** S2 additiv: MCP-Adresse für den Weg `app`, Berufsgeheimnis-Schalter (4.1) */
+  mcp_adresse?: string;
+  berufsgeheimnis?: boolean;
 }
 
 /** v1.4 3.5: GET /api/konto (nur admin, 404 im Selbstbetrieb) */

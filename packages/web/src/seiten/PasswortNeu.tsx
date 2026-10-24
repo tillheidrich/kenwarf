@@ -6,9 +6,12 @@ import { PRODUKT } from '../produkt';
 import { Feld, Knopf } from '../ui/teile';
 import { Icon } from '../ui/Icon';
 
-/** Nach Zurücksetzen durch den Admin: erst ein eigenes Passwort, dann geht es weiter (Server F1, code passwort_aendern). */
-export function PasswortNeu({ ich, fertig, abmelden }: { ich: User; fertig: () => void; abmelden: () => void }) {
-  const [alt, setAlt] = useState('');
+/**
+ * Erstzugang oder Zurücksetzen durch den Admin: erst ein eigenes Passwort, dann geht es weiter (Server F1, code passwort_aendern).
+ * `bisher`: Einmal-Passwort aus der Anmeldung eben; dann entfällt das Feld dafür.
+ */
+export function PasswortNeu({ ich, bisher, fertig, abmelden }: { ich: User; bisher?: string; fertig: () => void; abmelden: () => void }) {
+  const [alt, setAlt] = useState(bisher ?? '');
   const [neu, setNeu] = useState('');
   const [wdh, setWdh] = useState('');
   const [fehler, setFehler] = useState<string | null>(null);
@@ -37,13 +40,15 @@ export function PasswortNeu({ ich, fertig, abmelden }: { ich: User; fertig: () =
             Eigenes Passwort festlegen
           </h1>
           <p>
-            {ich.name.split(' ')[0]}, dein Zugang zu {PRODUKT} wurde zurückgesetzt. Bevor es weitergeht, brauchst du ein Passwort, das nur du kennst.
+            {(ich.name ?? '').split(' ')[0] || 'Hallo'}, du bist mit einem Einmal-Passwort angemeldet. Bevor es mit {PRODUKT} weitergeht, brauchst du ein Passwort, das nur du kennst.
           </p>
         </div>
         <form onSubmit={senden} noValidate>
-          <Feld label="Einmal-Passwort vom Admin">
-            {(p) => <input {...p} class="eingabe" type="password" autocomplete="current-password" value={alt} onInput={(x) => setAlt((x.target as HTMLInputElement).value)} />}
-          </Feld>
+          {!bisher && (
+            <Feld label="Einmal-Passwort">
+              {(p) => <input {...p} class="eingabe" type="password" autocomplete="current-password" value={alt} onInput={(x) => setAlt((x.target as HTMLInputElement).value)} />}
+            </Feld>
+          )}
           <Feld label="Neues Passwort" hilfe="Mindestens 10 Zeichen. Ein Satz, den du dir merken kannst, ist besser als ein kurzes Wort mit Sonderzeichen.">
             {(p) => <input {...p} class="eingabe" type="password" autocomplete="new-password" value={neu} onInput={(x) => setNeu((x.target as HTMLInputElement).value)} />}
           </Feld>

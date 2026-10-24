@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile, copyFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join, posix, relative, resolve, sep, extname } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import YAML from 'yaml';
@@ -11,8 +12,9 @@ import { Zugangsspeicher, ZugangEinfach } from './zugang.js';
 import { Zaehler, type Verbrauch } from './zaehler.js';
 import { Git } from './git.js';
 import { NetzFehler } from './netz.js';
+import { ausstiegsprobe as ausstiegsprobeIntern, entpackeKernZip, exportiere as exportiereDatei, umzugPruefen as umzugPruefenIntern, type Ausstiegsprobe, type ExportArt, type Pruefbericht } from './export.js';
 import { ParserFehler } from './parser.js';
-import { istAudio, ladeWebseite, leseDatei, robotsErlaubt, type IngestErgebnis } from './ingest.js';
+import { ANHANG_MAX_MB, istAudio, ladeWebseite, leseDatei, robotsErlaubt, type IngestErgebnis } from './ingest.js';
 import { normalisiereArtikelKopf, normalisiereQuellenKopf, ordneArtikelKopf, ordneQuellenKopf, normalisiereFundstellen } from './kopf.js';
 import { betroffeneOrdner, ergaenzeLog, erzeugeIndex, istReserviert } from './ordnerindex.js';
 import { embedKennung, erzeugeProvider, ueberdeckung } from './provider.js';
@@ -30,8 +32,23 @@ import { extrahiereJson, isoDatum, neueId, parseMarkdown, zeilenSaetze, sha256, 
 import { exportiereOkfBuendel, leseOkfBuendel } from './okf.js';
 import { LESESTILE, LeseStand, leseEinstellungenSchema, standardLesen } from './lesen.js';
 import { z } from 'zod';
+import { pruefbank as pruefbankIntern, pruefbankLaeufe as pruefbankLaeufeIntern, pruefbankSchaetzung as pruefbankSchaetzungIntern, speicherePrueffrage as speicherePrueffrageIntern, type KiStatus, type PruefbankLauf, type PruefbankOptionen, type PruefbankSatz, type PrueffrageEingabe } from './pruefbank.js';
+import { kontextbilanz as kontextbilanzIntern, type Kontextbilanz } from './kontextbilanz.js';
+import { kontextpaket as kontextpaketIntern, type Kontextpaket, type KontextpaketAnfrage } from './kontextpaket.js';
+import { agentVon, gedaechtnis as gedaechtnisIntern, notizenAblauf as notizenAblaufIntern, type GedaechtnisBefehl, type GedaechtnisErgebnis } from './gedaechtnis.js';
 
 type Reichweite = 'ich' | 'team' | 'betrieb';
+
+/** v1.4 4.3: Beispielsammlung (erfunden), mit absichtlichem Widerspruch und einer Fangfrage. */
+export const BEISPIEL_SAMMLUNG = 'beispiel';
+const BEISPIEL_TEXTE: { titel: string; text: string }[] = [
+  { titel: 'Beispiel: Urlaub und Krankmeldung', text: '# Urlaub und Krankmeldung\n\n## Urlaub\n\nUrlaubsanträge müssen zwei Wochen vorher im Büro eingereicht werden. Über Brückentage entscheidet die Geschäftsführung bis zum 31. Januar.\n\n## Krankmeldung\n\nKrankmeldungen bitte bis 9 Uhr telefonisch an das Büro. Ab dem dritten Tag ist eine Bescheinigung nötig.' },
+  { titel: 'Beispiel: Preisblatt 2026', text: '# Preisblatt 2026\n\n## Stundensätze\n\nDer Stundensatz für Montage beträgt 68 Euro netto.\n\n## Zahlungsziel\n\nRechnungen an Privatkunden haben ein Zahlungsziel von 14 Tagen.' },
+  { titel: 'Beispiel: Alte Notiz Buchhaltung', text: '# Alte Notiz Buchhaltung\n\n## Zahlungsziel\n\nRechnungen an Privatkunden haben ein Zahlungsziel von 30 Tagen.\n\n## Mahnungen\n\nDie erste Mahnung geht zwei Wochen nach Fälligkeit hinaus.' },
+  { titel: 'Beispiel: Werkstattregeln', text: '# Werkstattregeln\n\n## Maschinen\n\nDie Formatkreissäge wird nur mit Schiebestock bedient. Hobelmesser werden alle 40 Betriebsstunden gewechselt.\n\n## Ordnung\n\nFreitags ab 14 Uhr wird die Werkstatt gereinigt.' },
+];
+const BEISPIEL_FRAGEN = ['Wann muss ich einen Urlaubsantrag einreichen?', 'Wie lange ist das Zahlungsziel für Privatkunden?', 'Wann werden Hobelmesser gewechselt?'];
+const BEISPIEL_FANGFRAGE = 'Wie hoch ist das Weihnachtsgeld?';
 
 /** S1 M4 und D-L13: feste Hinweistexte, nie Modelltext. */
 export const HINWEIS = {
@@ -74,6 +91,17 @@ function kuerze(s: string, max: number): string {
   return (leer > max * 0.6 ? cut.slice(0, leer) : cut).trim();
 }
 
+/** v1.4.1 U11: Text besteht nur aus Bild- oder Linkmarkup (oder bloßen Adressen) und taugt nicht als Beleg. */
+export function nurMarkup(s: string): boolean {
+  const rest = s
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\[\^[^\]]+\]:?/g, ' ');
+  return (rest.match(/\p{L}/gu) ?? []).length < 3;
+}
+
 function normWs(s: string): string {
   return s.replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -99,7 +127,51 @@ export class Kern {
   /** Produktname (Konfig `produktname`, Standard „Kern“). */
   readonly produkt: string;
   /** v1.2: Vektorsuche nur mit echtem Embedding-Anbieter (oder ausdrücklich `vektoren: true`). */
-  readonly vektorenAn: boolean;
+  vektorenAn: boolean;
+  private inner: Provider;
+  private static vektorenFuer(cfg: KernConfig, provider: Provider): boolean {
+    return cfg.vektoren ?? (provider.name !== 'mock' && !(cfg.provider.art === 'anthropic' && cfg.provider.embed.art === 'mock'));
+  }
+
+  /**
+   * KI-Anbieter zur Laufzeit wechseln (v1.4 4.1, ohne Neustart). Ändert sich das Embedding-Modell, wird der Index neu gebaut.
+   * Speichert nichts in kern.yaml (das macht `speichereEinstellungen`).
+   */
+  async setzeProvider(p: ProviderConfig): Promise<void> {
+    const neu = erzeugeProvider(p);
+    const alteKennung = this.kennung;
+    (this.cfg as { provider: ProviderConfig }).provider = p;
+    delete (this.cfg as { providerInstanz?: Provider }).providerInstanz;
+    this.inner = neu;
+    this.vektorenAn = Kern.vektorenFuer(this.cfg, neu);
+    if (this.kennung !== alteKennung) {
+      this.ix.setzeMeta('embed', this.kennung);
+      await this.reindex();
+    }
+  }
+
+  /** Verbindung zu einem Anbieter testen (ein kurzer Aufruf, Embedding falls genutzt). Meldung ohne Schlüssel. */
+  async pruefeVerbindung(p: ProviderConfig): Promise<{ ok: boolean; meldung: string }> {
+    let prov: Provider;
+    try {
+      prov = erzeugeProvider(p);
+    } catch (e) {
+      return { ok: false, meldung: (e as Error).message.slice(0, 200) };
+    }
+    const mitZeit = <T>(x: Promise<T>) => Promise.race([x, new Promise<T>((_, f) => setTimeout(() => f(new Error('keine Antwort in 20 Sekunden')), 20_000))]);
+    const sauber = (m: string) => m.replace(/(sk|key|token|bearer)[-_ ]?[A-Za-z0-9_.-]{8,}/gi, '$1-…').slice(0, 200);
+    try {
+      const a = await mitZeit(prov.chat([{ role: 'system', content: 'Antworte nur mit dem Wort OK.' }, { role: 'user', content: 'Verbindungstest' }], { onVerbrauch: (v) => { try { this.zaehler.ki(v, this.kiPreis()); } catch { /* */ } } }));
+      if (!a.trim()) return { ok: false, meldung: 'Leere Antwort vom Anbieter' };
+      if (p.art !== 'mock' && Kern.vektorenFuer({ ...this.cfg, provider: p }, prov)) {
+        const v = await mitZeit(prov.embed(['Verbindungstest']));
+        if (!v[0]?.length) return { ok: false, meldung: 'Embedding ohne Ergebnis' };
+      }
+      return { ok: true, meldung: p.art === 'mock' ? 'Ohne KI (Mock) verbunden' : 'Verbindung steht' };
+    } catch (e) {
+      return { ok: false, meldung: sauber((e as Error).message) };
+    }
+  }
 
   private constructor(
     readonly cfg: KernConfig,
@@ -109,18 +181,21 @@ export class Kern {
     provider: Provider,
   ) {
     // v1.4 3.4: jeder KI-Aufruf wird ohne Personenbezug gezählt
-    this.zaehler = new Zaehler(join(dir, '.kern', 'zaehler.sqlite'), () => this.heuteDatum());
+    this.zaehler = new Zaehler(join(dir, '.kern', 'zaehler.sqlite'), () => this.heuteDatum(), () => this.jetzt());
     const zaehlen = (v: { eingabeTokens: number; ausgabeTokens: number }) => {
       try { this.zaehler.ki(v, this.kiPreis()); } catch { /* Zählen darf nie eine Antwort verhindern */ }
     };
+    this.inner = provider;
+    const self = this;
     this.provider = {
-      name: provider.name,
-      embed: (t) => provider.embed(t),
-      chat: (m, o) => provider.chat(m, { ...(o ?? {}), onVerbrauch: (v) => { zaehlen(v); o?.onVerbrauch?.(v); } }),
-      ...(provider.rerank ? { rerank: (f: string, t: string[]) => provider.rerank!(f, t) } : {}),
+      get name() { return self.inner.name; },
+      embed: (t) => self.inner.embed(t),
+      chat: (m, o) => self.inner.chat(m, { ...(o ?? {}), onVerbrauch: (v) => { zaehlen(v); o?.onVerbrauch?.(v); } }),
+      rerank: (f: string, t: string[]) => (self.inner.rerank ? self.inner.rerank(f, t) : Promise.resolve(t.map(() => 0))),
     };
+    if (!provider.rerank) delete (this.provider as { rerank?: unknown }).rerank;
     this.produkt = cfg.produktname?.trim() || 'Kern';
-    this.vektorenAn = cfg.vektoren ?? (provider.name !== 'mock' && !(cfg.provider.art === 'anthropic' && cfg.provider.embed.art === 'mock'));
+    this.vektorenAn = Kern.vektorenFuer(cfg, provider);
     this.benutzer = new Benutzerverwaltung(join(dir, '.kern', 'users.json'));
     this.zugang = new Zugangsspeicher(join(dir, '.kern', 'zugang.sqlite'), this.benutzer.holeSync, () => cfg.heute?.() ?? new Date());
     this.benutzer.zugang = this.zugang;
@@ -654,6 +729,117 @@ export class Kern {
     return e.regelpruefung_ki !== false;
   }
 
+  /* ================================================================ */
+  /* v1.4 Abschnitt 7: Export, Umzug, Ausstiegsprobe                   */
+  /* ================================================================ */
+
+  /** v1.4 7.1: Export als Datei `ziel` (okf | zip | umzugspaket), Rechte nach Art. */
+  exportiere(u: User, e: { art: ExportArt; ziel: string; passphrase?: string; instanz?: string }) {
+    return exportiereDatei(this, u, e);
+  }
+
+  /** v1.4 7.2: nach `umzugAuspacken` und `Kern.open`: Zugänge übernehmen und prüfen (schreibt .kern/pruefbericht.json). */
+  umzugPruefen(u: User): Promise<Pruefbericht> {
+    return umzugPruefenIntern(this, u);
+  }
+
+  /** v1.4 7.3: Ausstiegsprobe (admin): Umzugspaket in einen leeren Ordner und zurückprüfen, OKF ohne Kern lesbar. */
+  ausstiegsprobe(u: User): Promise<Ausstiegsprobe> {
+    const { providerInstanz } = this.cfg as { providerInstanz?: Provider };
+    return ausstiegsprobeIntern(this, u, (dir) => Kern.open({ ...this.cfg, dataDir: dir, ...(providerInstanz ? { providerInstanz } : {}) }));
+  }
+
+  /** Ergebnis der Ausstiegsprobe ablegen (pruefung/ausstieg/<datum>.json, git, nie indiziert). */
+  async speichereAusstiegsprobe(u: User, probe: Ausstiegsprobe): Promise<string> {
+    const pfad = `pruefung/ausstieg/${probe.am.slice(0, 10)}.json`;
+    await this.sperre.run(async () => {
+      await this.schreibeDateien([{ pfad, inhalt: JSON.stringify(probe, null, 2) + '\n' }]);
+      await this.git.commit([pfad], u.name, `Ausstiegsprobe ${probe.bestanden ? 'bestanden' : 'nicht bestanden'}`);
+    });
+    return pfad;
+  }
+
+  /** Letzte Ausstiegsprobe oder null. */
+  async letzteAusstiegsprobe(): Promise<Ausstiegsprobe | null> {
+    const namen = (await readdir(join(this.dir, 'pruefung', 'ausstieg')).catch(() => [] as string[])).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort();
+    const n = namen.at(-1);
+    return n ? (JSON.parse((await this.lies(`pruefung/ausstieg/${n}`)) ?? 'null') as Ausstiegsprobe | null) : null;
+  }
+
+  /* ================================================================ */
+  /* v1.4 4.1, 4.3: Vorschlagsfragen, Beispielsammlung                 */
+  /* ================================================================ */
+
+  /** v1.4 4.1: höchstens 3 Fragen aus den neuesten sichtbaren Quellen (Fakten zuerst, dann Überschriften), deterministisch. */
+  async vorschlagsfragen(u: User): Promise<string[]> {
+    const quellen = this.sichtbareDateien(u, 'quelle').filter((d) => d.aktiv);
+    const mitDatum: { d: DateiEintrag; am: string }[] = [];
+    for (const d of quellen) mitDatum.push({ d, am: String(parseMarkdown((await this.lies(d.pfad)) ?? '').kopf['erfasst_am'] ?? '') });
+    mitDatum.sort((a, b) => b.am.localeCompare(a.am) || a.d.pfad.localeCompare(b.d.pfad));
+    const out: string[] = [];
+    const schon = new Set<string>();
+    const dazu = (f: string) => {
+      const k = f.toLowerCase();
+      if (out.length < 3 && !schon.has(k)) { schon.add(k); out.push(f); }
+    };
+    for (const f of (await this.fakten(u)).filter((x) => x.gueltig).slice(0, 2)) dazu(`Was gilt für ${f.gegenstand}?`);
+    for (const { d } of mitDatum.slice(0, 5)) {
+      for (const a of this.ix.abschnitteVon(d.pfad)) {
+        const h = a.abschnitt.replace(/\s+/g, ' ').trim();
+        if (!h || h === d.titel || h.length < 4 || h.length > 70 || /^seite \d+$/i.test(h)) continue;
+        dazu(/\?$/.test(h) ? h : `Was steht zu „${h}“?`);
+      }
+      if (this.ix.abschnitteVon(d.pfad).length && d.titel.length <= 70) dazu(`Was steht in „${d.titel}“?`);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }
+
+  /** v1.4 4.3: Ist die Beispielsammlung geladen? */
+  beispielGeladen(): boolean {
+    return this.ix.dateien().some((d) => d.art === 'quelle' && d.sammlung === BEISPIEL_SAMMLUNG);
+  }
+
+  /**
+   * v1.4 4.3: Beispielsammlung `beispiel` laden (admin), ohne Demo-Benutzer, mit einem absichtlichen Widerspruch und
+   * einer Fangfrage. Quellen plus Vorschläge im Eingang wie bei echten Unterlagen.
+   */
+  async beispielLaden(u: User): Promise<{ quellen: Quelle[]; vorschlaege: Vorschlag[]; fragen: string[]; fangfrage: string; widerspruch: string }> {
+    brauchtRolle(u, 'admin', 'die Beispielsammlung laden');
+    if (this.beispielGeladen()) throw new KernFehler('konflikt', 'Die Beispielsammlung ist schon geladen');
+    const quellen: Quelle[] = [];
+    const vorschlaege: Vorschlag[] = [];
+    for (const b of BEISPIEL_TEXTE) {
+      const r = await this.fuegeHinzu(u, { art: 'text', titel: b.titel, inhalt: b.text, sammlung: BEISPIEL_SAMMLUNG, sichtbarkeit: 'betrieb' });
+      quellen.push(r.quelle);
+      vorschlaege.push(...r.vorschlaege);
+    }
+    return { quellen, vorschlaege, fragen: BEISPIEL_FRAGEN, fangfrage: BEISPIEL_FANGFRAGE, widerspruch: 'Zahlungsziel: 14 Tage (Preisblatt) gegen 30 Tage (alte Notiz)' };
+  }
+
+  /** v1.4 4.3: Beispielsammlung ohne Rest entfernen (admin): Quellen, daraus entstandene Artikel und Vorschläge, auch aus dem Verlauf. */
+  async beispielEntfernen(u: User): Promise<{ entfernt: number }> {
+    brauchtRolle(u, 'admin', 'die Beispielsammlung entfernen');
+    const quellen = new Set(this.ix.dateien().filter((d) => d.art === 'quelle' && d.sammlung === BEISPIEL_SAMMLUNG).map((d) => d.pfad));
+    let n = 0;
+    // Artikel, die sich nur auf Beispielquellen stützen
+    for (const d of this.ix.dateien().filter((x) => x.art === 'wissen')) {
+      const a = this.parseArtikel(d.pfad, (await this.lies(d.pfad)) ?? '');
+      if (a.kopf.fundstellen.length && a.kopf.fundstellen.every((f) => quellen.has(f.quelle))) {
+        await this.loescheEndgueltig(u, d.pfad, 'Beispielsammlung entfernt');
+        n++;
+      }
+    }
+    for (const q of quellen) {
+      if (!this.ix.datei(q)) continue;
+      await this.loescheEndgueltig(u, q, 'Beispielsammlung entfernt');
+      n++;
+    }
+    // Bereinigungsvorschläge zu Beispielen sind gegenstandslos
+    for (const v of await this.offeneVorschlaege()) if (v.grund.startsWith('Bereinigung nach endgültigem Löschen') && !(await this.lies(v.ziel))) await this.entscheide(u, v.id, { aktion: 'ablehnen', begruendung: 'Beispielsammlung entfernt' }).catch(() => undefined);
+    return { entfernt: n };
+  }
+
   /** Preis des aktiven Anbieters in Cent je Million Tokens (kern.yaml `ki.preis_cent_je_mio` oder KernConfig), sonst null. */
   private kiPreis(): { ein: number; aus: number } | null {
     const ki = (this.einstellungenSync?.['ki'] ?? null) as { preis_cent_je_mio?: { ein?: number; aus?: number } } | null;
@@ -846,6 +1032,8 @@ export class Kern {
       belege.splice(0, belege.length, ...neueBelege);
       punkte.splice(0, punkte.length, ...neuePunkte);
     }
+    // v1.4.1 U11: Belege aus einem Artikel und aus der Quelle, auf die seine einzige Fundstelle zeigt, zusammenfassen (Artikel bevorzugt)
+    await this.fasseDublettenZusammen(belege, punkte);
     if (!punkte.length) return { status: 'steht_nicht_drin', punkte: [], belege: [], hinweis: HINWEIS.leer, ...mitKi };
     // S1 M4: Stützprüfung je Punkt gegen die belegten Abschnitte (ganzer Abschnitt, nicht nur Zitat)
     const abschnittVon = (b: Fundstelle) => treffer.find((t) => t.pfad === b.quelle && t.von <= b.zeilen[0] && t.bis >= b.zeilen[1])?.text ?? b.zitat;
@@ -853,6 +1041,23 @@ export class Kern {
     // Punkte ohne jede Stützung fallen weg, wenn andere Punkte gestützt sind (eingeschleuste Zusätze)
     const behalten = markiert.some((p) => p.gestuetzt !== 'unklar') ? markiert.filter((p) => p.gestuetzt !== 'unklar') : markiert;
     return { status: 'beantwortet', punkte: behalten, belege, hinweis: behalten.some((p) => p.gestuetzt !== 'ja') ? HINWEIS.ki_pruefen : HINWEIS.ki, ...mitKi };
+  }
+
+  /** v1.4.1 U11: Quelle-Belege entfernen, wenn ein Artikel-Beleg derselben Antwort genau diese Quelle als einzige Fundstelle hat. */
+  private async fasseDublettenZusammen(belege: Fundstelle[], punkte: Antwort['punkte']): Promise<void> {
+    const ersetze = new Map<number, number>();
+    for (const [i, b] of belege.entries()) {
+      if (!b.quelle.startsWith('wissen/')) continue;
+      const fs = normalisiereArtikelKopf(parseMarkdown((await this.lies(b.quelle)) ?? '').kopf, b.quelle, { besitzer: SYSTEM, heute: this.heuteDatum() }).kopf.fundstellen;
+      if (fs.length !== 1) continue;
+      for (const [j, c] of belege.entries()) if (j !== i && !ersetze.has(j + 1) && c.quelle === fs[0]!.quelle) ersetze.set(j + 1, i + 1);
+    }
+    if (!ersetze.size) return;
+    const neuNr = new Map<number, number>();
+    const behalten: Fundstelle[] = [];
+    belege.forEach((b, i) => { if (!ersetze.has(i + 1)) { behalten.push(b); neuNr.set(i + 1, behalten.length); } });
+    for (const p of punkte) p.belege = [...new Set(p.belege.map((n) => neuNr.get(ersetze.get(n) ?? n)!).filter(Boolean))];
+    belege.splice(0, belege.length, ...behalten);
   }
 
   /** v1.2: Steht das Zitat (nach Whitespace-Normalisierung) wörtlich im angegebenen Zeilenbereich? */
@@ -892,7 +1097,7 @@ export class Kern {
     }
     if (!bereich) {
       // bester Satz des Abschnitts zum Punkt
-      const kandidaten = zeilenSaetze(zeilen.join('\n'), true);
+      const kandidaten = zeilenSaetze(zeilen.join('\n'), true).filter((x) => !nurMarkup(x));
       let best: string | null = null;
       let bs = -1;
       for (const s of kandidaten) {
@@ -908,8 +1113,11 @@ export class Kern {
         zitat = bereich ? normWs(best) : null;
       }
     }
+    if (zitat && nurMarkup(zitat)) return null;
     if (!bereich || !zitat) {
-      return { quelle: t.pfad, abschnitt: t.abschnitt, zeilen: [t.von, t.bis], zitat: kuerze(normWs(zeilen.join(' ')), 300) };
+      const ganz = kuerze(normWs(zeilen.join(' ')), 300);
+      if (nurMarkup(ganz)) return null;
+      return { quelle: t.pfad, abschnitt: t.abschnitt, zeilen: [t.von, t.bis], zitat: ganz };
     }
     zitat = kuerze(zitat, 500);
     return { quelle: t.pfad, abschnitt: t.abschnitt, zeilen: [t.von + bereich[0], t.von + bereich[1]], zitat };
@@ -943,6 +1151,12 @@ export class Kern {
       kompilieren?: boolean;
       /** Erweiterung: diese Quelle ausdrücklich als Vorgänger ersetzen (sonst: gleiche Herkunft + Sammlung). */
       ersetzt?: string;
+      /** v1.4.1 U8: Herkunft für den Quellenkopf (z. B. Outline-Adresse), statt Dateiname/URL/„text“. */
+      herkunft?: string;
+      /** v1.4.1 U8: Kennung im Fremdsystem; gleiche `extern_id` in derselben Sammlung ersetzt die alte Fassung. */
+      extern_id?: string;
+      /** v1.4.1 U8: weitere Felder für den Quellenkopf (Pflichtfelder lassen sich damit nicht überschreiben). */
+      zusatz?: Record<string, unknown>;
     },
   ): Promise<{ quelle: Quelle; vorschlaege: Vorschlag[]; warnungen: string[]; doppelt?: boolean }> {
     brauchtRolle(u, 'autor', 'etwas hinzufügen');
@@ -984,6 +1198,11 @@ export class Kern {
           quelle = join(this.dir, '.kern', `upload-${Date.now()}${extname(name).toLowerCase()}`);
           await copyFile(e.dateiPfad, quelle);
         }
+        const maxMb = Number(((await this.leseBetriebsEinstellungen())['anhaenge'] as { max_mb?: number } | undefined)?.max_mb ?? ANHANG_MAX_MB);
+        if (((await stat(e.dateiPfad).catch(() => null))?.size ?? 0) > maxMb * 1024 * 1024) {
+          if (quelle !== e.dateiPfad) await rm(quelle, { force: true });
+          throw Object.assign(new KernFehler('ungueltig', `Datei größer als ${maxMb} MB (kern.yaml anhaenge.max_mb)`), { grund: 'zu_gross' });
+        }
         try {
           ing = await leseDatei(quelle, this.cfg.whisper, this.cfg.parser ?? {});
         } catch (err) {
@@ -998,6 +1217,17 @@ export class Kern {
         break;
       }
     }
+    if (e.herkunft !== undefined) {
+      const h = String(e.herkunft).replace(/[\r\n]/g, ' ').trim().slice(0, 500);
+      if (h) herkunft = h;
+    }
+    const externId = e.extern_id !== undefined ? String(e.extern_id).replace(/[\r\n]/g, ' ').trim().slice(0, 200) : '';
+    const PFLICHT = new Set(['type', 'titel', 'art', 'herkunft', 'erfasst_am', 'erfasst_von', 'sichtbarkeit', 'sammlung', 'hash', 'ersetzt', 'beobachtet', 'extern_id', 'besitzer']);
+    const zusatz: Record<string, unknown> = {};
+    if (e.zusatz && typeof e.zusatz === 'object') {
+      for (const [k, v] of Object.entries(e.zusatz)) if (!PFLICHT.has(k) && /^[a-z_][a-z0-9_]{0,40}$/i.test(k) && v !== undefined) zusatz[k] = v;
+      if (JSON.stringify(zusatz).length > 8000) throw new KernFehler('ungueltig', 'zusatz zu groß (höchstens 8 KB)');
+    }
     const titel = (e.titel || ing.titel || 'Ohne Titel').trim();
     const hash = sha256(ing.original?.daten ?? ing.text);
     const warnungen: string[] = [];
@@ -1011,8 +1241,15 @@ export class Kern {
         const i = (await this.lies(gleich.pfad)) ?? '';
         return { quelle: this.parseQuelle(gleich.pfad, i), doppelt: true };
       }
+      let perId: DateiEintrag | undefined;
+      if (externId && !e.ersetzt) {
+        for (const d of quellen.filter((x) => x.aktiv && x.sammlung === sammlung && darfSehen(u, x.sichtbarkeit, x.besitzer))) {
+          if (String(parseMarkdown((await this.lies(d.pfad)) ?? '').kopf['extern_id'] ?? '') === externId) { perId = d; break; }
+        }
+      }
       const vorgaenger = e.ersetzt
         ? quellen.find((d) => d.pfad === e.ersetzt && darfSehen(u, d.sichtbarkeit, d.besitzer))
+        : perId ? perId
         : herkunft !== 'text' && herkunft !== 'notiz'
           ? quellen.find((d) => d.aktiv && d.herkunft === herkunft && d.sammlung === sammlung && darfSehen(u, d.sichtbarkeit, d.besitzer))
           : undefined;
@@ -1020,7 +1257,7 @@ export class Kern {
       const pfad = await this.freierPfad(`quellen/${jahr}/${slugify(titel)}`);
       const kopf: QuellenKopf = {
         type: 'Quelle', titel, art: e.art, herkunft, erfasst_am: this.jetzt(), erfasst_von: u.id, sichtbarkeit: e.sichtbarkeit, sammlung, hash,
-        ersetzt: vorgaenger?.pfad ?? null, beobachtet: !!e.beobachten, ...(ing.kopf ?? {}),
+        ersetzt: vorgaenger?.pfad ?? null, beobachtet: !!e.beobachten, ...zusatz, ...(ing.kopf ?? {}), ...(externId ? { extern_id: externId } : {}),
       };
       const aenderungen: Aenderung[] = [{ pfad, inhalt: stringifyMarkdown(ordneQuellenKopf(kopf), ing.text) }];
       if (ing.original && e.art !== 'text' && e.art !== 'notiz') aenderungen.push({ pfad: pfad.replace(/\.md$/, `.orig.${ing.original.ext}`), inhalt: ing.original.daten });
@@ -1094,9 +1331,23 @@ export class Kern {
    */
   async importiere(
     u: User,
-    e: { art: 'obsidian' | 'notion' | 'outline' | 'confluence' | 'markdown' | 'okf'; pfad: string; sammlung?: string; sichtbarkeit?: Sichtbarkeit; kompilieren?: boolean },
+    e: { art: 'obsidian' | 'notion' | 'outline' | 'confluence' | 'markdown' | 'okf' | 'kern-zip'; pfad: string; sammlung?: string; sichtbarkeit?: Sichtbarkeit; kompilieren?: boolean },
   ): Promise<{ quellen: Quelle[]; vorschlaege: Vorschlag[]; uebersprungen: string[]; warnungen: string[] }> {
     brauchtRolle(u, 'autor', 'importieren');
+    if (e.art === 'kern-zip') {
+      // eigener ZIP- oder OKF-ZIP-Export: geprüft entpacken (nur wissen/ und quellen/), dann wie OKF (Quellen plus Vorschläge)
+      const tmp = await mkdtemp(join(tmpdir(), 'kern-zip-'));
+      try {
+        const roh = join(tmp, 'roh');
+        await entpackeKernZip(e.pfad, roh);
+        const nur = join(tmp, 'nur');
+        await mkdir(nur, { recursive: true });
+        for (const o of ['wissen', 'quellen']) if (existsSync(join(roh, o))) await rename(join(roh, o), join(nur, o));
+        return { ...(await this.importiereOkf(u, nur, { ...(e.sammlung ? { sammlung: e.sammlung } : {}), ...(e.sichtbarkeit ? { sichtbarkeit: e.sichtbarkeit } : {}) })), warnungen: [] };
+      } finally {
+        await rm(tmp, { recursive: true, force: true });
+      }
+    }
     if (e.art === 'okf') return { ...(await this.importiereOkf(u, e.pfad, { ...(e.sammlung ? { sammlung: e.sammlung } : {}), ...(e.sichtbarkeit ? { sichtbarkeit: e.sichtbarkeit } : {}) })), warnungen: [] };
     const wurzel = resolve(e.pfad);
     const st = await stat(wurzel);
@@ -1348,7 +1599,7 @@ export class Kern {
   async eingang(u: User, opt: { alle?: boolean } = {}): Promise<Vorschlag[]> {
     const alle = (await this.offeneVorschlaege()).filter((v) => {
       const r = this.vorschlagsRechte(v);
-      return darfSehen(u, r.sichtbarkeit, r.besitzer) || v.von === u.id;
+      return darfSehen(u, r.sichtbarkeit, r.besitzer) || v.von === u.id || v.von.endsWith(`@${u.id}`);
     });
     if (opt.alle) return alle;
     const max = (await this.leseLesen(u)).max_offene_vorschlaege;
@@ -1372,7 +1623,7 @@ export class Kern {
     if (!roh) throw new KernFehler('nicht_gefunden', `Vorschlag ${id} nicht gefunden`);
     const v = vorschlagSchema.parse(JSON.parse(roh)) as Vorschlag;
     const r = this.vorschlagsRechte(v);
-    if (!darfSehen(u, r.sichtbarkeit, r.besitzer) && v.von !== u.id) throw new KernFehler('nicht_gefunden', `Vorschlag ${id} nicht gefunden`);
+    if (!darfSehen(u, r.sichtbarkeit, r.besitzer) && v.von !== u.id && !v.von.endsWith(`@${u.id}`)) throw new KernFehler('nicht_gefunden', `Vorschlag ${id} nicht gefunden`);
     return v;
   }
 
@@ -1418,7 +1669,7 @@ export class Kern {
     return z;
   }
 
-  private async legeVorschlagAn(u: User, v: { art: Vorschlag['art']; ziel: string; alt: string | null; neu: string; grund: string; quelle?: string; ki?: boolean }): Promise<Vorschlag> {
+  private async legeVorschlagAn(u: User, v: { art: Vorschlag['art']; ziel: string; alt: string | null; neu: string; grund: string; quelle?: string; ki?: boolean }, von: string = u.id): Promise<Vorschlag> {
     const ziel = this.pruefeZiel(v.ziel);
     if (!v.grund.trim()) throw new KernFehler('ungueltig', 'Grund fehlt');
     return this.sperre.run(async () => {
@@ -1429,9 +1680,7 @@ export class Kern {
         const d = this.ix.datei(ziel);
         if (d && !darfSehen(u, d.sichtbarkeit, d.besitzer)) throw new KernFehler('nicht_gefunden', `${ziel} gibt es nicht`);
       }
-      if (ziel.startsWith('wissen/_regeln/') && !hatRolle(u, 'admin')) {
-        // Regeln dürfen alle vorschlagen; freigeben nur Admins (siehe entscheide)
-      }
+      if (v.art === 'nachtrag' && !v.neu.startsWith(aktuell!.trimEnd())) throw new KernFehler('ungueltig', 'Nachtrag: der neue Text muss mit dem bisherigen Text beginnen (nur anhängen)');
       const neu = this.bereiteArtikelVor(u, ziel, v.neu, v.art, aktuell === null ? u.id : this.besitzerVon(aktuell) ?? this.ix.datei(ziel)?.besitzer ?? u.id);
       const vorschlag: Vorschlag = {
         id: neueId(),
@@ -1440,7 +1689,7 @@ export class Kern {
         alt: aktuell,
         neu,
         grund: v.grund.trim(),
-        von: u.id,
+        von,
         erstellt: this.jetzt(),
         status: 'offen',
         basis_hash: aktuell === null ? '' : sha256(aktuell),
@@ -1456,9 +1705,42 @@ export class Kern {
     });
   }
 
-  async schlageVor(u: User, v: Omit<Vorschlag, 'id' | 'status' | 'erstellt' | 'von'>): Promise<Vorschlag> {
+  /** `opt.agent`: Vorschlag über einen Agenten-Zugang, `von` wird `agent/<name>@<userId>` (v1.4 6.3). */
+  async schlageVor(u: User, v: Omit<Vorschlag, 'id' | 'status' | 'erstellt' | 'von'>, opt: { agent?: string } = {}): Promise<Vorschlag> {
     brauchtRolle(u, 'autor', 'Vorschläge machen');
-    return this.legeVorschlagAn(u, { art: v.art, ziel: v.ziel, alt: v.alt, neu: v.neu ?? '', grund: v.grund, ...(v.quelle ? { quelle: v.quelle } : {}) });
+    return this.legeVorschlagAn(u, { art: v.art, ziel: v.ziel, alt: v.alt, neu: v.neu ?? '', grund: v.grund, ...(v.quelle ? { quelle: v.quelle } : {}) }, opt.agent ? agentVon(opt.agent, u.id) : u.id);
+  }
+
+  /** v1.4.1 U10: Nachtrag vorschlagen (Text wird angehängt; Art `nachtrag`). */
+  async nachtrag(u: User, a: { ziel: string; text: string; grund: string; quelle?: string }, opt: { agent?: string } = {}): Promise<Vorschlag> {
+    brauchtRolle(u, 'autor', 'Vorschläge machen');
+    const ziel = this.pruefeZiel(a.ziel);
+    const d = this.ix.datei(ziel);
+    const alt = d && darfSehen(u, d.sichtbarkeit, d.besitzer) ? await this.lies(ziel) : null;
+    if (alt === null) throw new KernFehler('nicht_gefunden', `${ziel} gibt es nicht`);
+    if (!a.text.trim()) throw new KernFehler('ungueltig', 'Text fehlt');
+    return this.legeVorschlagAn(u, { art: 'nachtrag', ziel, alt, neu: `${alt.trimEnd()}\n\n${a.text.trim()}\n`, grund: a.grund, ...(a.quelle ? { quelle: a.quelle } : {}) }, opt.agent ? agentVon(opt.agent, u.id) : u.id);
+  }
+
+  /**
+   * v1.4.1 U10: Sammelfreigabe für offene Vorschläge mit gleichem Grund, gleicher Quelle, gleichem Absender oder einer Liste von IDs.
+   * Jeder Vorschlag wird einzeln mit `entscheide` entschieden (Rechte, Konflikte, Commits wie dort). Höchstens 500 je Aufruf.
+   */
+  async entscheideSammel(u: User, filter: { ids?: string[]; grund?: string; quelle?: string; von?: string; art?: Vorschlag['art'] }, e: { aktion: 'freigeben' | 'ablehnen'; begruendung?: string }): Promise<{ erledigt: Vorschlag[]; konflikte: Vorschlag[]; fehler: { id: string; meldung: string }[] }> {
+    if (!filter.ids?.length && !filter.grund && !filter.quelle && !filter.von) throw new KernFehler('ungueltig', 'Sammelfreigabe braucht ids, grund, quelle oder von');
+    const passend = (await this.eingang(u, { alle: true })).filter((v) =>
+      (!filter.ids || filter.ids.includes(v.id)) && (!filter.grund || v.grund === filter.grund) && (!filter.quelle || v.quelle === filter.quelle) && (!filter.von || v.von === filter.von) && (!filter.art || v.art === filter.art) && v.status === 'offen',
+    ).slice(0, 500);
+    const out = { erledigt: [] as Vorschlag[], konflikte: [] as Vorschlag[], fehler: [] as { id: string; meldung: string }[] };
+    for (const v of passend) {
+      try {
+        const r = await this.entscheide(u, v.id, e);
+        (r.status === 'konflikt' ? out.konflikte : out.erledigt).push(r);
+      } catch (f) {
+        out.fehler.push({ id: v.id, meldung: (f as Error).message });
+      }
+    }
+    return out;
   }
 
   async entscheide(u: User, id: string, e: { aktion: 'freigeben' | 'ablehnen' | 'aendern'; begruendung?: string; neuerText?: string }): Promise<Vorschlag> {
@@ -1505,7 +1787,11 @@ export class Kern {
       const aktuell = await this.lies(v.ziel);
       const istHash = aktuell === null ? '' : sha256(aktuell);
       const sollHash = v.basis_hash ?? (v.alt === null ? '' : sha256(v.alt));
-      if (istHash !== sollHash) {
+      // v1.4.1 U10: ein Nachtrag hängt nur an; hat sich das Ziel geändert, wird der Anhang an den neuen Stand gesetzt
+      const anhang = v.art === 'nachtrag' && v.alt !== null && e.aktion !== 'aendern' ? nachtragsAnhang(v.alt, v.neu) : null;
+      if (istHash !== sollHash && anhang !== null && aktuell !== null) {
+        neu = this.bereiteArtikelVor(u, v.ziel, aktuell.trimEnd() + anhang, 'nachtrag', this.besitzerVon(aktuell) ?? v.von);
+      } else if (istHash !== sollHash) {
         // v1.2: Zieldatei hat sich geändert → nicht überschreiben, sondern neu vergleichen und Status „konflikt“
         if (aktuell === null && v.art !== 'neu') {
           const weg: Vorschlag = { ...v, status: 'abgelehnt', entscheidung: { von: u.id, am, begruendung: 'Zieldatei gibt es nicht mehr' } };
@@ -1540,7 +1826,7 @@ export class Kern {
       const fertig: Vorschlag = {
         ...v,
         neu: inhalt ?? '',
-        diff: erzeugeDiff(v.ziel, v.alt ?? '', inhalt ?? ''),
+        diff: erzeugeDiff(v.ziel, aktuell ?? v.alt ?? '', inhalt ?? ''),
         status: 'freigegeben',
         entscheidung: { von: u.id, am, ...(begruendung ? { begruendung } : {}) },
       };
@@ -1549,7 +1835,7 @@ export class Kern {
         { pfad: erledigt, inhalt: JSON.stringify(fertig, null, 2) + '\n' },
         { pfad: quelle, inhalt: null },
       ]);
-      const verb = v.art === 'neu' ? 'angelegt' : v.art === 'loeschung' ? 'gelöscht' : 'geändert';
+      const verb = v.art === 'neu' ? 'angelegt' : v.art === 'loeschung' ? 'gelöscht' : v.art === 'nachtrag' ? 'ergänzt' : 'geändert';
       await this.commitMitOrdnerIndex([v.ziel, erledigt, quelle], u.name, v.grund, `${v.ziel} ${verb}. Vorschlag ${v.id} von ${v.von}, ${e.aktion === 'aendern' ? 'geändert und ' : ''}freigegeben von ${u.name}${begruendung ? `: ${begruendung}` : ''}.`);
       return fertig;
     });
@@ -2534,9 +2820,85 @@ export class Kern {
   static hatRolle(u: User, r: Rolle): boolean {
     return hatRolle(u, r);
   }
+
+  /* ================================================================ */
+  /* v1.4 8.1 bis 8.5 und 9 (E1/E2): Prüfbank, Kontextbilanz,          */
+  /* Kontextpaket, Agentenprofile, Gedächtnis-Adapter                  */
+  /* ================================================================ */
+
+  /** v1.4 8.1: Prüfbank-Lauf (admin) in einer Temp-Kopie; Ergebnis unter pruefung/laeufe/ (git), Vergleich in pruefung/vergleich.md. */
+  pruefbank(u: User, opt: PruefbankOptionen): Promise<PruefbankLauf> {
+    return pruefbankIntern(this, u, opt);
+  }
+  /** v1.4 8.1: alle Läufe, neueste zuerst (admin). */
+  pruefbankLaeufe(u: User): Promise<PruefbankLauf[]> {
+    return pruefbankLaeufeIntern(this, u);
+  }
+  /** v1.4 8.1: geschätzte Kosten vor dem Start (Fragen, Tokens [Schätzung], Cent oder null ohne Preis). */
+  pruefbankSchaetzung(u: User, opt: { satz: PruefbankSatz; anbieter?: ProviderConfig }): Promise<{ fragen: number; tokens: number; cent: number | null }> {
+    return pruefbankSchaetzungIntern(this, u, opt);
+  }
+  /** v1.4 8.1: „Als Prüffrage speichern“ (freigeber), schreibt pruefung/fragen.yaml mit Commit. */
+  speicherePrueffrage(u: User, f: Omit<PrueffrageEingabe, 'id'> & { id?: string }): Promise<{ id: string }> {
+    return speicherePrueffrageIntern(this, u, f);
+  }
+  /** v1.4 8.2: Prüfstatus der aktiven KI aus kern.yaml (`ki.status`), Standard `ungeprueft` außer bei mock. */
+  async kiStatus(): Promise<KiStatus> {
+    const ki = (await this.leseBetriebsEinstellungen()).ki as { status?: KiStatus; art?: string };
+    return ki?.status ?? (this.cfg.provider.art === 'mock' ? 'geprueft' : 'ungeprueft');
+  }
+  /** v1.4 9: Kontextbilanz (freigeber, admin), nur Zahlen aus Dateien, git, Eingang und Zählern. */
+  kontextbilanz(u: User): Promise<Kontextbilanz> {
+    return kontextbilanzIntern(this, u);
+  }
+  /** v1.4 8.3: Kontextpaket mit Budget für ein fremdes Modell oder einen Agenten. */
+  kontextpaket(u: User, a: KontextpaketAnfrage): Promise<Kontextpaket> {
+    return kontextpaketIntern(this, u, a);
+  }
+  /** v1.4 8.5: Befehl des Claude-Memory-Tools auf /memories (wissen nur als Vorschlag, notizen direkt). */
+  gedaechtnis(u: User, befehl: GedaechtnisBefehl, opt: { agent?: string; reichweite?: 'ich' | 'team' | 'betrieb' | null } = {}): Promise<GedaechtnisErgebnis> {
+    return gedaechtnisIntern(this, u, befehl, opt);
+  }
+  /** v1.4 8.5: abgelaufene Agenten-Notizen (notizen.ablauf_tage) als Löschvorschläge melden; gibt die Pfade zurück. */
+  notizenAblauf(u: User): Promise<string[]> {
+    return notizenAblaufIntern(this, u);
+  }
+
+  /** @internal Zugriff für die v1.4-Module in diesem Paket. */
+  get _intern() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const k = this;
+    return {
+      lies: (p: string) => k.lies(p),
+      sichtbar: (u: User, art?: 'wissen' | 'quelle', r?: Reichweite) => k.sichtbareDateien(u, art, r),
+      rohSuche: (u: User, q: string, opt: { reichweite?: Reichweite; sammlung?: string; limit?: number; art?: 'wissen' | 'quelle' }) => k.rohSuche(u, q, opt),
+      heute: () => k.heuteDatum(),
+      jetzt: () => k.jetzt(),
+      einstellungen: () => k.leseBetriebsEinstellungen(),
+      offeneVorschlaege: () => k.offeneVorschlaege(),
+      legeVorschlagAn: (u: User, v: { art: Vorschlag['art']; ziel: string; alt: string | null; neu: string; grund: string; quelle?: string }, von?: string) => k.legeVorschlagAn(u, v, von),
+      schreibeCommit: (dateien: Aenderung[], autor: string, grund: string, text?: string) =>
+        k.sperre.run(async () => {
+          await k.schreibeDateien(dateien);
+          return k.git.commit(dateien.map((d) => d.pfad), autor, grund, text);
+        }),
+      zitatAusZeilen: (q: string, von: number, bis: number) => k.zitatAusZeilen(q, von, bis),
+      providerInstanz: (k.cfg as { providerInstanz?: Provider }).providerInstanz ?? null,
+      kiPreis: () => k.kiPreis(),
+      abs: (p: string) => k.abs(p),
+      profil: () => k.inner.profil ?? null,
+    };
+  }
 }
 
 /* ------------------------------------------------------------------ */
+
+/** v1.4.1 U10: angehängter Teil eines Nachtrags (Rumpf ohne Kopf), oder null, wenn neu nicht mit alt beginnt. */
+function nachtragsAnhang(alt: string, neu: string): string | null {
+  const a = parseMarkdown(alt).text.trimEnd();
+  const n = parseMarkdown(neu).text;
+  return n.startsWith(a) ? n.slice(a.length) : null;
+}
 
 export function erzeugeDiff(pfad: string, alt: string, neu: string): string {
   return createTwoFilesPatch(alt ? `a/${pfad}` : '/dev/null', neu ? `b/${pfad}` : '/dev/null', alt, neu, '', '', { context: 3 });

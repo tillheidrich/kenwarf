@@ -177,7 +177,8 @@ export type Stuetzung = 'ja' | 'teilweise' | 'unklar';
 
 export interface Vorschlag {
   id: string;
-  art: 'neu' | 'aenderung' | 'loeschung';
+  /** v1.4.1 U10: `nachtrag` = nur angehängt (neu beginnt mit alt). */
+  art: 'neu' | 'aenderung' | 'loeschung' | 'nachtrag';
   ziel: string;
   alt: string | null;
   neu: string;
@@ -211,7 +212,10 @@ export interface Provider {
   chat(msgs: ChatNachricht[], opt?: ChatOptionen): Promise<string>;
   /** Optionaler Reranker: liefert je Text eine Relevanz (höher = besser). */
   rerank?(frage: string, texte: string[]): Promise<number[]>;
+  /** v1.4 5.1: optionales Anbieterprofil (Kontextfenster in Tokens, JSON-Modus, Reranker, Region). */
+  profil?: ProviderProfil;
 }
+export interface ProviderProfil { kontextFenster: number; json: boolean; rerank: boolean; region: 'lokal' | 'eu' | 'usa' | 'unbekannt' }
 
 /* ------------------------------------------------------------------ */
 /* zod-Schemata                                                         */
@@ -281,7 +285,7 @@ export const quellenKopfSchema = z
 
 export const vorschlagSchema = z.object({
   id: z.string(),
-  art: z.enum(['neu', 'aenderung', 'loeschung']),
+  art: z.enum(['neu', 'aenderung', 'loeschung', 'nachtrag']),
   ziel: z.string(),
   alt: z.string().nullable(),
   neu: z.string(),

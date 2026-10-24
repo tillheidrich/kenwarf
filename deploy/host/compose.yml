@@ -1,0 +1,81 @@
+# Gemeinsame Dienste eines geteilten Kern-Hosts: Caddy (eingehend) und kern-egress (ausgehend).
+# Die Instanzen selbst legt kern-host an (je Kunde ein Container, ein Netz "internal", ein Datenordner).
+#
+#   docker compose -p kern-host -f deploy/host/compose.yml up -d        (macht "kern-host einrichten")
+#
+# Werte aus /srv/kern/host.env (Vorlage host.env.example). Alle Pfade unter KERN_BASIS.
+name: kern-host
+
+networks:
+  aussen:
+    name: kern-aussen
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${KERN_AUSSEN_NETZ:-10.230.0.0/24}
+
+services:
+  egress:
+    image: ${KERN_EGRESS_IMAGE:-kern-egress:latest}
+    container_name: kern-egress
+    restart: unless-stopped
+    networks:
+      aussen:
+        ipv4_address: ${KERN_EGRESS_IP:-10.230.0.3}
+    environment:
+      KERN_EGRESS_DIR: /var/lib/kern-egress
+    volumes:
+      - ${KERN_BASIS:-/srv/kern}/egress:/var/lib/kern-egress
+    ports:
+      # Verwaltung nur für den Leitstand: an localhost des Hosts (Zugriff über WireGuard/SSH-Tunnel)
+      - "127.0.0.1:${KERN_EGRESS_ADMIN_PORT:-3129}:3129"
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      # Protokoll des Proxys: 14 Tage sind bei dieser Größe etwa erreicht; kein Inhalt, keine Pfade (O1 1.8.2)
+      options: { max-size: "20m", max-file: "5" }
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2}
+    container_name: kern-caddy
+    restart: unless-stopped
+    depends_on: [egress]
+    networks:
+      aussen:
+        ipv4_address: ${KERN_CADDY_IP:-10.230.0.2}
+    environment:
+      KERN_MANAGED_DOMAIN: ${KERN_MANAGED_DOMAIN:?KERN_MANAGED_DOMAIN fehlt (Schalter S-2)}
+      KERN_SUBDOMAIN_LABEL: ${KERN_SUBDOMAIN_LABEL:-2}
+      KERN_TLS_ASK: ${KERN_TLS_ASK:-http://10.230.0.3:3130/tls-ask}
+      KERN_CADDY_GLOBAL: ${KERN_CADDY_GLOBAL:-}
+      ACME_MAIL: ${ACME_MAIL:?ACME_MAIL fehlt (Kontakt für Lets Encrypt)}
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+    ports:
+      - "${KERN_HTTP_BIND:-0.0.0.0}:${KERN_HTTP_PORT:-80}:8080"
+      - "${KERN_HTTP_BIND:-0.0.0.0}:${KERN_HTTPS_PORT:-443}:8443"
+    volumes:
+      - ${KERN_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ${KERN_BASIS:-/srv/kern}/caddy/data:/data
+      - ${KERN_BASIS:-/srv/kern}/caddy/config:/config
+    read_only: true
+    tmpfs: [/tmp]
+    user: "1000:1000"
+    cap_drop: [ALL]
+    # Das Caddy-Image setzt cap_net_bind_service als Dateifähigkeit auf /usr/bin/caddy. Ohne diese Fähigkeit im
+    # Begrenzungssatz verweigert der Kernel den Start ("operation not permitted"). Caddy lauscht trotzdem auf 8080/8443.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

@@ -1,0 +1,17 @@
+# Nur für e2e/egress/egress-test.sh: KI-Attrappe mit öffentlich aussehender Adresse und Testnamen im Resolver des Proxys.
+networks:
+  ki-netz:
+    name: d2-ki-netz
+    external: true
+services:
+  egress:
+    networks:
+      ki-netz: {}
+    extra_hosts:
+      - "api.mistral.ai=11.22.33.10"
+      - "eigene-ki.example=11.22.33.10"
+      - "nicht-erlaubt.example=11.22.33.10"
+      - "boese.example=10.0.0.5"
+      - "doppelt.example=11.22.33.10"
+      - "doppelt.example=169.254.169.254"
+      - "v6boese.example=fd00:ec2::254"

@@ -1,0 +1,232 @@
+#cloud-config
+# Geteilter Kern-Host (Stufe „Geteilt“, CONTRACT v1.4 3.1, 3.7, 3.8): Ubuntu 24.04 bei Hetzner, zweites Volume als
+# Datenplatte (XFS mit Projektkontingent, LUKS), Docker, Caddy + kern-egress, nftables-Sperre, Backups stündlich,
+# Wiederherstellungstest nachts, Sicherheitsupdates. Instanzen legt danach der Leitstand mit kern-host an.
+#
+# NICHT auf einem echten Hetzner-Server geprüft. In der Sandbox geprüft sind die Bausteine einzeln
+# (e2e/egress/egress-test.sh, e2e/backup/backup-test.sh); XFS-Kontingente konnten dort nicht erzwungen werden
+# (Kernel ohne Quota-Unterstützung), siehe docs/betrieb/runbook.md.
+#
+# Vorher ersetzen: KERN_MANAGED_DOMAIN, ACME_MAIL, KERN_BACKUP_ZIEL, KERN_IMAGE (fester Digest), KERN_REPO/REF,
+# den SSH-Schlüssel und die WireGuard-Werte. Keine Geheimnisse ins Repo: diese Datei wird beim Anlegen vom Leitstand
+# mit den Werten gefüllt (Platzhalter in <>).
+
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+  - jq
+  - curl
+  - nftables
+  - xfsprogs
+  - cryptsetup
+  - restic
+  - auditd
+  - unattended-upgrades
+  - fail2ban
+  - wireguard
+  - socat
+
+write_files:
+  - path: /srv/kern-host.env.vorlage
+    permissions: "0600"
+    content: |
+      KERN_BASIS=/srv/kern
+      KERN_MANAGED_DOMAIN=<managed-domain>
+      ACME_MAIL=<betriebs-mail>
+      KERN_IMAGE=<kern-image>
+      KERN_EGRESS_IMAGE=kern-egress:lokal
+      CADDY_IMAGE=caddy:2
+      KERN_QUOTA=pflicht
+      KERN_IO_GERAET=/dev/mapper/kern-daten
+      KERN_LEITSTAND_HOSTS=<leitstand-host>
+      KERN_BACKUP_ZIEL=<backup-ziel>
+      KERN_BERICHT_URL=https://<leitstand-host>/v1/hosts/<host-id>/wiederherstellung
+      KERN_BERICHT_TOKEN=<token>
+  # WireGuard zum Leitstand (P2, 24.10.2026): Schlüssel erzeugt der Leitstand; einziger Peer ist der Leitstand.
+  - path: /etc/wireguard/wg0.conf
+    permissions: "0600"
+    content: |
+      [Interface]
+      PrivateKey = <wg-privat>
+      Address = <wg-adresse>/16
+      ListenPort = 51820
+
+      [Peer]
+      PublicKey = <leitstand-wg-pub>
+      AllowedIPs = <leitstand-wg-ip>/32
+  # Eingehend nur 51820/udp, 80/443 und über den Tunnel vom Leitstand: SSH, Docker Engine (2375), Egress-Verwaltung (3129)
+  - path: /etc/kern/eingang.nft
+    content: |
+      table inet kern_eingang {
+        chain input {
+          type filter hook input priority 0; policy drop;
+          iif lo accept
+          ct state established,related accept
+          udp dport 51820 accept
+          tcp dport { 80, 443 } accept
+          udp dport 443 accept
+          iifname "wg0" ip saddr <leitstand-wg-ip> tcp dport { 22, 2375, 3129 } accept
+          icmp type echo-request limit rate 5/second accept
+        }
+      }
+  # Docker Engine und Egress-Verwaltung nur auf der Tunneladresse, nur für den Leitstand (range=)
+  - path: /etc/systemd/system/kern-wg-docker.service
+    content: |
+      [Unit]
+      Description=Kern: Docker Engine nur im WireGuard-Tunnel für den Leitstand
+      After=wg-quick@wg0.service docker.service
+      Requires=wg-quick@wg0.service docker.service
+      [Service]
+      ExecStart=/usr/bin/socat TCP4-LISTEN:2375,bind=<wg-adresse>,fork,reuseaddr,range=<leitstand-wg-ip>/32 UNIX-CONNECT:/var/run/docker.sock
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/kern-wg-egress.service
+    content: |
+      [Unit]
+      Description=Kern: Egress-Verwaltung nur im WireGuard-Tunnel für den Leitstand
+      After=wg-quick@wg0.service docker.service
+      Requires=wg-quick@wg0.service
+      [Service]
+      ExecStart=/usr/bin/socat TCP4-LISTEN:3129,bind=<wg-adresse>,fork,reuseaddr,range=<leitstand-wg-ip>/32 TCP:127.0.0.1:3129
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+  - path: /root/kern-egress-admin-token
+    permissions: "0400"
+    content: |
+      <egress-admin-token>
+  - path: /root/kern-luks.key
+    permissions: "0400"
+    content: |
+      <luks-schluessel>
+  # Einmaliger Rückruf an den Leitstand, sobald Tunnel und Docker stehen (Einmal-Token, danach ungültig)
+  - path: /usr/local/sbin/kern-rueckruf
+    permissions: "0700"
+    content: |
+      #!/bin/sh
+      set -u
+      for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 5; done
+      ip4="$(curl -fsS --max-time 5 http://169.254.169.254/hetzner/v1/metadata/public-ipv4 || true)"
+      curl -fsS --max-time 15 --retry 10 --retry-delay 15 -X POST -H 'authorization: Bearer <rueckruf-token>' \
+        -H 'content-type: application/json' -d "{\"ipv4\":\"$ip4\"}" '<rueckruf-url>'
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" }, "live-restore": true,
+        "userland-proxy": false, "no-new-privileges": true, "icc": false }
+  - path: /etc/ssh/sshd_config.d/10-kern.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      ListenAddress <wg-adresse>
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/audit/rules.d/kern.rules
+    content: |
+      # Zugriffe von HD auf Kundencontainer und Datenordner nachvollziehbar (O1 6.1)
+      -w /var/run/docker.sock -p rwa -k kern_docker
+      -w /srv/kern/instanzen -p rwa -k kern_daten
+      -w /srv/kern/geheim -p rwa -k kern_geheim
+  - path: /etc/systemd/system/kern-nft.service
+    content: |
+      [Unit]
+      Description=Kern nftables-Sperre der Instanznetze (folgt Docker-Netzereignissen)
+      After=docker.service
+      Requires=docker.service
+      [Service]
+      ExecStart=/opt/kern/src/deploy/host/nft-kern.sh beobachten
+      Restart=always
+      RestartSec=5
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/kern-nft-auffrischen.service
+    content: |
+      [Unit]
+      Description=Kern nftables-Sperre neu schreiben (Rückfall)
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/kern/src/deploy/host/nft-kern.sh anwenden
+  - path: /etc/systemd/system/kern-nft-auffrischen.timer
+    content: |
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=1h
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/systemd/system/kern-backup.service
+    content: |
+      [Unit]
+      Description=Kern Sicherung aller Instanzen (stündlich)
+      [Service]
+      Type=oneshot
+      Environment=KERN_BASIS=/srv/kern
+      ExecStart=/opt/kern/src/deploy/host/kern-backup sichern alle
+      Nice=10
+      IOSchedulingClass=idle
+  - path: /etc/systemd/system/kern-backup.timer
+    content: |
+      [Timer]
+      OnCalendar=hourly
+      RandomizedDelaySec=900
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/systemd/system/kern-backup-ziel2.service
+    content: |
+      [Unit]
+      Description=Kern Sicherung an das zweite Ziel (täglich)
+      [Service]
+      Type=oneshot
+      Environment=KERN_BASIS=/srv/kern
+      ExecStart=/opt/kern/src/deploy/host/kern-backup sichern alle --ziel2
+  - path: /etc/systemd/system/kern-backup-ziel2.timer
+    content: |
+      [Timer]
+      OnCalendar=*-*-* 03:40:00
+      RandomizedDelaySec=1200
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/systemd/system/kern-wiederherstellung.service
+    content: |
+      [Unit]
+      Description=Kern Wiederherstellungstest (nachts eine zufällige Instanz, am 1. alle)
+      [Service]
+      Type=oneshot
+      Environment=KERN_BASIS=/srv/kern
+      ExecStart=/bin/sh -c 'if [ "$(date +%%d)" = 01 ]; then /opt/kern/src/deploy/host/kern-backup test alle; else /opt/kern/src/deploy/host/kern-backup test zufall; fi'
+  - path: /etc/systemd/system/kern-wiederherstellung.timer
+    content: |
+      [Timer]
+      OnCalendar=*-*-* 04:20:00
+      RandomizedDelaySec=1800
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  # Datenplatte: LUKS (Schlüssel kommt beim Anlegen vom Leitstand, liegt nicht im Repo), darin XFS mit prjquota
+  - test -b /dev/sdb && test -s /root/kern-luks.key && (cryptsetup isLuks /dev/sdb || cryptsetup luksFormat --batch-mode /dev/sdb /root/kern-luks.key)
+  - test -b /dev/sdb && cryptsetup open /dev/sdb kern-daten --key-file /root/kern-luks.key || true
+  - test -b /dev/mapper/kern-daten && (blkid /dev/mapper/kern-daten || mkfs.xfs /dev/mapper/kern-daten)
+  - mkdir -p /srv/kern
+  - test -b /dev/mapper/kern-daten && (grep -q kern-daten /etc/fstab || echo '/dev/mapper/kern-daten /srv/kern xfs defaults,prjquota,nofail 0 2' >> /etc/fstab) && mount /srv/kern || true
+  - systemctl enable --now docker fail2ban auditd
+  - nft -f /etc/kern/eingang.nft
+  - systemctl enable --now wg-quick@wg0
+  - augenrules --load || true
+  - git clone --depth 1 --branch <ref> <repo> /opt/kern/src
+  - test -f /srv/kern/host.env || cp /srv/kern-host.env.vorlage /srv/kern/host.env
+  - docker build -t kern-egress:lokal /opt/kern/src/deploy/egress
+  - install -D -m 0400 -o 1000 -g 1000 /root/kern-egress-admin-token /srv/kern/egress/admin-token && rm -f /root/kern-egress-admin-token
+  - /opt/kern/src/deploy/host/kern-host einrichten
+  - systemctl daemon-reload
+  - systemctl enable --now kern-nft.service kern-nft-auffrischen.timer kern-backup.timer kern-backup-ziel2.timer kern-wiederherstellung.timer
+  - systemctl enable --now kern-wg-docker.service kern-wg-egress.service
+  - /usr/local/sbin/kern-rueckruf
+  # Firewall der Hetzner-Cloud zusätzlich: eingehend nur 80/443 und WireGuard (51820/udp); SSH nur über WireGuard

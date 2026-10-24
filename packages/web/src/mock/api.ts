@@ -983,7 +983,7 @@ export const mockApi: KernApi = {
     if (p.art === 'mock')
       return { art: 'mock', anbieter: 'Testmodus ohne KI', endpunkt: null, region: 'auf diesem Server', lokal: true, ...basis, daten: [], hinweis: 'Es geht nichts nach außen. Antworten bestehen aus wörtlichen Sätzen der Fundstellen.' };
     if (p.art === 'ollama') return { art: 'ollama', anbieter: 'Ollama (lokal)', endpunkt: p.url ?? null, region: 'eigener Rechner', lokal: true, ...basis };
-    if (p.art === 'anthropic') return { art: 'anthropic', anbieter: 'Anthropic', endpunkt: 'https://api.anthropic.com', region: 'USA', lokal: false, ...basis, hinweis: 'Anbieter außerhalb der EU. Prüft den Vertrag zur Auftragsverarbeitung.' };
+    if (p.art === 'anthropic') return { art: 'anthropic', anbieter: 'Anthropic', endpunkt: 'https://api.anthropic.com', region: 'USA', lokal: false, ...basis, hinweis: 'Fragen und gefundene Abschnitte gehen an Anthropic, Server in den USA (Drittland).' };
     return { art: 'openai', anbieter: 'OpenAI-kompatibler Anbieter', endpunkt: p.url ?? null, region: /ionos|stackit|mistral/i.test(p.url ?? '') ? 'EU' : 'laut Anbieter', lokal: false, ...basis };
   },
   async importieren(e) {

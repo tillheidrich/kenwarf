@@ -1,0 +1,6 @@
+[
+  { "id": "mistral", "name": "Mistral AI (EU)", "art": "openai", "url": "https://api.mistral.ai/v1", "chatModell": "mistral-small-latest", "embedModell": "mistral-embed", "apiKeyEnv": "KERN_PROVIDER_KEY_MISTRAL", "region": "EU" },
+  { "id": "ionos", "name": "IONOS AI Model Hub (DE)", "art": "openai", "url": "https://openai.inference.de-txl.ionos.com/v1", "chatModell": "meta-llama/Llama-3.3-70B-Instruct", "embedModell": "BAAI/bge-m3", "apiKeyEnv": "KERN_PROVIDER_KEY_IONOS", "region": "DE" },
+  { "id": "stackit", "name": "STACKIT AI Model Serving (DE)", "art": "openai", "url": "https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1", "chatModell": "", "embedModell": "intfloat/e5-mistral-7b-instruct", "apiKeyEnv": "KERN_PROVIDER_KEY_STACKIT", "region": "DE" },
+  { "id": "scaleway", "name": "Scaleway Generative APIs (FR)", "art": "openai", "url": "https://api.scaleway.ai/v1", "chatModell": "", "embedModell": "bge-multilingual-gemma2", "apiKeyEnv": "KERN_PROVIDER_KEY_SCALEWAY", "region": "FR" }
+]

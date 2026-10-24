@@ -24,6 +24,9 @@ const BEKANNTE_REGIONEN: [RegExp, string][] = [
   [/(^|\.)stackit\.(cloud|de)$/i, 'EU (Deutschland, laut Anbieter)'],
   [/(^|\.)anthropic\.com$/i, 'USA (laut Anbieter)'],
   [/(^|\.)openai\.com$/i, 'USA (laut Anbieter)'],
+  [/(^|\.)googleapis\.com$/i, 'USA (laut Anbieter)'],
+  [/(^|\.)scaleway\.(ai|com)$/i, 'EU (Frankreich, laut Anbieter)'],
+  [/(^|\.)ovh\.net$/i, 'EU (Frankreich, laut Anbieter)'],
 ];
 
 function ortVon(url: string | null): { ort: DatenwegStrecke['ort']; region: string | null } {

@@ -40,12 +40,27 @@ export interface StatusAntwort extends Betriebsdaten {
 
 export type Modus = 'normal' | 'nur_lesen' | 'pausiert';
 
+/**
+ * Ergebnis eines Anlage-Schritts. `einladung` trägt das Einmalpasswort des ersten Admins; der Leitstand schickt es nur
+ * per Mail an die Admin-Adresse und speichert es nicht im Vorgang (der Postausgang leert den Text nach dem Versand).
+ */
+export interface SchrittErgebnis {
+  meldung?: string; url?: string; version?: string; einladung?: { mail: string; einmalPasswort: string };
+  /** Zufällige Passwörter der Demo-Zugänge (Pitch). Der Leitstand zeigt sie genau einmal in der Konsole, speichert und protokolliert sie nie. */
+  demo_zugaenge?: DemoZugang[];
+}
+export interface DemoZugang { name: string; passwort: string; rollen: string[] }
+
 export interface Bereitsteller {
   readonly name: string;
   /** Schrittnamen in Reihenfolge (für die Vorgangsanzeige). */
   readonly schritte: readonly string[];
+  /** Schritte je Stufe (Eigene Maschine hat andere Schritte als ein Container). Fehlt die Methode, gilt `schritte`. */
+  schritteFuer?(stufe: Stufe): readonly string[];
+  /** Regelmäßige Wartung (z. B. verwaiste Server nach 30 Minuten löschen). Liefert Meldungen ohne Inhalte. */
+  wartung?(): Promise<string[]>;
   /** Führt einen Schritt aus. Muss wiederholbar sein (idempotent), weil ein gescheiterter Vorgang wiederholt wird. */
-  schritt(name: string, a: Auftrag): Promise<{ meldung?: string; url?: string; version?: string }>;
+  schritt(name: string, a: Auftrag): Promise<SchrittErgebnis>;
   status(id: string): Promise<StatusAntwort>;
   modus(id: string, m: Modus): Promise<void>;
   /** Legt das Paket in der Instanz ab; der Download-Link geht nur an den Admin der Instanz, nie an den Leitstand. */

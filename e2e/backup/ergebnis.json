@@ -1,0 +1,128 @@
+{
+  "am": "2026-10-24T07:32:14Z",
+  "image": "kern:d2-fd33686",
+  "restic": "restic 0.18.0",
+  "bestanden": true,
+  "pruefungen": [
+    {
+      "name": "Instanz mit Inhalt (Rauchtest)",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "sichern 1",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "SQLite-Kopien in der Sicherung",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "append-only: Host kann Sicherungen nicht löschen",
+      "erwartet": "verweigert",
+      "ergebnis": "verweigert",
+      "ok": true
+    },
+    {
+      "name": "sichern 2 (inkrementell)",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "pflege (Aufbewahrung, Stichprobe)",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "Wiederherstellungstest",
+      "erwartet": "ok",
+      "ergebnis": "ok",
+      "ok": true
+    },
+    {
+      "name": "Wiederherstellungstest erkennt beschädigtes Ziel",
+      "erwartet": "fehler",
+      "ergebnis": "fehler",
+      "ok": true
+    },
+    {
+      "name": "zwei Schnappschüsse gelistet",
+      "erwartet": 2,
+      "ergebnis": 2,
+      "ok": true
+    },
+    {
+      "name": "vernichten: Schlüssel weg",
+      "erwartet": "vernichtet",
+      "ergebnis": "vernichtet",
+      "ok": true
+    },
+    {
+      "name": "vernichten: Repository ohne Schlüssel unlesbar",
+      "erwartet": "unlesbar",
+      "ergebnis": "unlesbar",
+      "ok": true
+    },
+    {
+      "name": "vernichten: Daten am Ziel entfernt (Pflegezugang)",
+      "erwartet": "0",
+      "ergebnis": "0",
+      "ok": true
+    }
+  ],
+  "sichern": [
+    {
+      "ok": true,
+      "aktion": "sichern",
+      "id": "i_d2backup01",
+      "snapshot": "af5888428c4206db203abeb5596a2c363d111b593c76ef018bcdec89c99de1e9",
+      "bytes_neu": 142296,
+      "dateien": 73,
+      "sqlite_kopien": 2,
+      "head": "e28dec407ec554acb2cc8f70b48859ab950fbab1",
+      "sekunden": 5
+    },
+    {
+      "ok": true,
+      "aktion": "sichern",
+      "id": "i_d2backup01",
+      "snapshot": "96a60bab71c0152e599e65a1bee3ff4b4c8f3d7c05eb3fefedc593dd5f1aac4b",
+      "bytes_neu": 69928,
+      "dateien": 73,
+      "sqlite_kopien": 2,
+      "head": "e28dec407ec554acb2cc8f70b48859ab950fbab1",
+      "sekunden": 1
+    }
+  ],
+  "test_ok": {
+    "am": "2026-10-24T07:32:10Z",
+    "aktion": "wiederherstellen_test",
+    "id": "i_d2backup01",
+    "snapshot": "96a60bab",
+    "ergebnis": "ok",
+    "grund": null,
+    "befunde": 0,
+    "fehler": 0,
+    "alter_min": 0,
+    "dauer_ms": 4647
+  },
+  "test_beschaedigt": {
+    "am": "2026-10-24T07:32:13Z",
+    "aktion": "wiederherstellen_test",
+    "id": "i_d2backup01",
+    "snapshot": "96a60bab",
+    "ergebnis": "fehler",
+    "grund": "restore",
+    "befunde": 0,
+    "fehler": 0,
+    "alter_min": 0,
+    "dauer_ms": 1478
+  }
+}

@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { erstelleApp, ladeKonfiguration, type KernLike } from '../src/index.js';
+import { erstelleApp, f12Hinweis, ladeKonfiguration, type KernLike } from '../src/index.js';
 
 const hier = path.dirname(fileURLToPath(import.meta.url));
 const coreDist = path.resolve(hier, '../../core/dist/index.js');
@@ -68,6 +68,9 @@ describe.skipIf(!coreDa)('OAuth 2.1 Autorisierungsserver (echtes core)', () => {
     const html = await r.text();
     expect(r.status).toBe(200);
     expect(html).toContain('geht an den Anbieter dieses Programms'); // F12-Pflichthinweis
+    // wortgleich mit web F12Hinweis, Produktname aus produkt.name; Zustimmung erst nach dem Hinweis (Formular danach)
+    expect(html).toContain(f12Hinweis('Kern'));
+    expect(html.indexOf('id="f12"')).toBeLessThan(html.indexOf('<form'));
     expect(html).toContain(new URL(o.redirect).hostname);
     expect(r.headers.get('content-security-policy')).toContain(`form-action 'self' ${new URL(o.redirect).origin}`);
     const csrf = /name="csrf" value="([^"]+)"/.exec(html)![1]!;
@@ -179,4 +182,22 @@ describe.skipIf(!coreDa)('OAuth 2.1 Autorisierungsserver (echtes core)', () => {
     expect(v.status).toBe(403);
     expect(v.headers.get('www-authenticate')).toContain('Rolle');
   });
+});
+
+describe.skipIf(!coreDa)('6.2 „Nur bekannte Apps“ im Managed-Betrieb standardmäßig an', () => {
+  it('DCR mit unbekannter App → 400, Claude → 201; im kern.yaml abschaltbar', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kern-oauth-m-'));
+    const env = { KERN_SECRET: 'm'.repeat(40), KERN_PUBLIC_URL: BASIS, KERN_WEB_DIST: path.join(dir, 'x'), KERN_MODUS: 'managed' };
+    const config = ladeKonfiguration({ dataDir: dir, env });
+    const mod = (await import(coreDist)) as { Kern: { open(c: unknown): Promise<KernLike> } };
+    const kern = await mod.Kern.open(config.kern);
+    try {
+      const { app } = erstelleApp({ kern, config });
+      const reg = (uri: string) => app.request(`${BASIS}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_name: 'X', redirect_uris: [uri] }) });
+      expect((await reg('https://unbekannt.example/cb')).status).toBe(400);
+      expect((await reg(CLAUDE_CB)).status).toBe(201);
+      fs.writeFileSync(path.join(dir, 'kern.yaml'), 'oauth:\n  nur_bekannte_apps: false\n');
+      expect((await reg('https://unbekannt.example/cb')).status).toBe(201);
+    } finally { await kern.schliesse?.(); fs.rmSync(dir, { recursive: true, force: true }); }
+  }, 60000);
 });

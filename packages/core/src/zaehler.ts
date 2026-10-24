@@ -20,13 +20,14 @@ export interface Verbrauch {
 
 export class Zaehler {
   private db: Database.Database;
-  constructor(pfad: string, private heute: () => string) {
+  constructor(pfad: string, private heute: () => string, private jetzt: () => string = () => new Date().toISOString()) {
     mkdirSync(dirname(pfad), { recursive: true });
     this.db = new Database(pfad);
     this.db.pragma('journal_mode = WAL');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS ki_tag (tag TEXT PRIMARY KEY, aufrufe INTEGER NOT NULL DEFAULT 0, ein INTEGER NOT NULL DEFAULT 0, aus INTEGER NOT NULL DEFAULT 0, centhundertstel INTEGER NOT NULL DEFAULT 0, ohne_preis INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS ereignis_tag (tag TEXT NOT NULL, art TEXT NOT NULL, anzahl INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tag, art));
+      CREATE TABLE IF NOT EXISTS meilenstein (art TEXT PRIMARY KEY, am TEXT NOT NULL);
     `);
   }
 
@@ -44,6 +45,21 @@ export class Zaehler {
   /** Ereignis ohne Inhalt zählen (Art ist ein fester Bezeichner, nie Nutzertext). */
   ereignis(art: 'antwort_belegt' | 'antwort_steht_nicht_drin' | 'antwort_gehoert_nicht_hierher' | 'frage_ohne_ki' | 'suche' | 'vorschlag_freigegeben' | 'vorschlag_abgelehnt'): void {
     this.db.prepare('INSERT INTO ereignis_tag (tag, art, anzahl) VALUES (?, ?, 1) ON CONFLICT(tag, art) DO UPDATE SET anzahl = anzahl + 1').run(this.heute(), art);
+    if (art === 'antwort_belegt') this.meilenstein('erste_belegte_antwort');
+  }
+
+  /** v1.4 9: Zeitpunkt eines Meilensteins einmalig festhalten (feste Bezeichner, keine Personen). */
+  meilenstein(art: 'erste_belegte_antwort', am: string = this.jetzt()): void {
+    this.db.prepare('INSERT OR IGNORE INTO meilenstein (art, am) VALUES (?, ?)').run(art, am);
+  }
+
+  leseMeilenstein(art: 'erste_belegte_antwort'): string | null {
+    return (this.db.prepare('SELECT am FROM meilenstein WHERE art = ?').get(art) as { am: string } | undefined)?.am ?? null;
+  }
+
+  /** Erster Tag mit Ereignissen oder null. */
+  erstesEreignis(): string | null {
+    return (this.db.prepare('SELECT MIN(tag) AS t FROM ereignis_tag').get() as { t: string | null }).t ?? null;
   }
 
   ereignisse(von: string, bis: string): Record<string, number> {

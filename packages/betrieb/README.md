@@ -31,3 +31,18 @@ UI-Entscheidung: serverseitig gerendert statt Preact. Ein Bediener, formularlast
 ## Prüfen
 
 `npm test -w @kern/betrieb` (vitest, inkl. echter Engine über `lokal`), `node packages/betrieb/e2e/screenshots.mjs` (Playwright 390/1440 px, axe WCAG 2.2 AA, Passkey mit virtuellem Authenticator).
+
+## Nachtrag P2 (24.10.2026): echte Bereitsteller, Mollie-Abo, Mail, Rechnungsentwurf
+
+| Baustein | Datei | Stand |
+|---|---|---|
+| Bereitsteller `docker` (Geteilt) | `src/bereitsteller/docker.ts`, `src/docker/engine.ts` | Engine API über Socket oder TCP+TLS; Namen, Labels, /28-Netz, Umgebung wie `deploy/host/kern-host`. Gegen lokalen dockerd mit `kern:p2` (aus `deploy/Dockerfile` gebaut) getestet |
+| Egress-Verwaltung | `src/docker/egress.ts` | gegen den echten `deploy/egress/kern-egress.mjs` getestet (Form mit D2 abgestimmt) |
+| Bereitsteller `hetzner` (Eigene Maschine) | `src/bereitsteller/hetzner.ts`, `src/hetzner/api.ts` | Cloud API laut `docs.hetzner.cloud/cloud.spec.json`, V-1, Firewall ohne Port 22, DNS über `/zones/{zone}/rrsets`, Rückruf `POST /v1/rueckruf/:id` mit Einmal-Token, Aufräumen nach 30 Minuten. Nur gegen Attrappe getestet |
+| Verbund | `src/bereitsteller/verbund.ts` | verteilt nach Host; Stufenwechsel Docker → Docker per Archiv mit Prüfsumme |
+| `/_betrieb/*`-Client | `src/betrieb-client.ts` | HTTP oder docker exec; Export meldet ehrlich 501, solange server ihn nicht hat |
+| Mollie-Abo | `src/leitstand.ts` (Abschnitt Mollie-Abo), `src/abrechnung.ts`, `src/mollie.ts` | Abo nach Erstzahlung, tagesgenauer Aufpreis über das Mandat, Erstattung bei gescheitertem Wechsel, Kündigung, Rücknahme, Vorankündigung 3 Tage |
+| Mail | `src/mail/texte.ts`, `src/mail/versand.ts` | alle Mails des Plans v1.4 3.3 plus Lesephase Tag 1/14/28; SMTP über nodemailer, ohne Konfiguration kein Versand |
+| Rechnungs-Werkzeug | `src/rechnung.ts` | MCP-Client mit Erlaubnisliste (`beleg_entwerfen`, `kunden_suchen`), nie festschreiben |
+
+Umgebung für `start.ts`: `BETRIEB_BEREITSTELLER=docker`, `BETRIEB_DOCKER_HOSTS`, `BETRIEB_KERN_IMAGE`, `BETRIEB_GEHEIMNIS_SCHLUESSEL`, `BETRIEB_OEFFENTLICHE_URL`, optional `HETZNER_TOKEN`, `HETZNER_ZONE`, `HETZNER_SSH_KEYS`, `BETRIEB_SMTP_*`, `BETRIEB_MAIL_ABSENDER`, `BETRIEB_RECHNUNG_MCP_URL`, `BETRIEB_RECHNUNG_MCP_TOKEN`.

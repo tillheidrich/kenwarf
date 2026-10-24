@@ -353,6 +353,7 @@ export function Fragen({ route }: { route: Route }) {
                       {antwort.punkte.map((p, i) => (
                         <li key={i}>
                           <span class="antwort-text">{p.text}</span>{' '}
+                          {p.gestuetzt && p.gestuetzt !== 'ja' && <span class="gestuetzt-hinweis">{p.gestuetzt === 'teilweise' ? 'nur teilweise belegt' : 'Beleg unklar'}</span>}{' '}
                           {p.belege.map((b) => (
                             <button
                               type="button"
@@ -467,6 +468,7 @@ export function Fragen({ route }: { route: Route }) {
                       <p class="quelle-titel">
                         <span class="sr-only">Beleg {i + 1}: </span>
                         {titelFuer(b, titel)}
+                        {b.web && <span class="chip chip--warn quelle-web">Webseite</span>}
                       </p>
                       <p class="quelle-abschnitt">{b.abschnitt}</p>
                     </div>

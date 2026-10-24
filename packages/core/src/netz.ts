@@ -11,7 +11,7 @@
  */
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
-import { Agent, EnvHttpProxyAgent, fetch as ufetch, type Dispatcher } from 'undici';
+import { Agent, EnvHttpProxyAgent, ProxyAgent, fetch as ufetch, type Dispatcher } from 'undici';
 
 export interface NetzOptionen {
   /** Höchstgröße der Antwort in Bytes (Standard 5 MB). */
@@ -229,5 +229,33 @@ export function proxyDispatcher(url: string, proxy: NetzOptionen['proxy'] = prox
 /** fetch mit gemeinsamem Proxy (für vertrauenswürdige, konfigurierte Ziele; fremde URLs immer über `sichererAbruf`). */
 export function fetchMitProxy(url: string, init: Parameters<typeof ufetch>[1] = {}): ReturnType<typeof ufetch> {
   const d = proxyDispatcher(url);
+  return ufetch(url, { ...init, ...(d ? { dispatcher: d } : {}) });
+}
+
+let kiCache: { uri: string; agent: ProxyAgent } | null = null;
+
+/**
+ * Dispatcher für KI-Anbieter (v1.4 3.7, Egress-Kanal „.ki“): `KERN_KI_PROXY` (z. B. `http://<id>.ki:<token>@kern-egress:3128`,
+ * nur Erlaubnisliste) hat Vorrang, sonst wie `proxyDispatcher` (HTTP(S)_PROXY, NO_PROXY). Loopback nie über einen Proxy.
+ */
+export function kiDispatcher(url: string, kiProxy: string | undefined = process.env['KERN_KI_PROXY']): Dispatcher | undefined {
+  if (!kiProxy) return proxyDispatcher(url);
+  let u: URL;
+  try { u = new URL(url); } catch { return undefined; }
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || (isIP(host) && (host === '::1' || host.startsWith('127.')))) return undefined;
+  if (!kiCache || kiCache.uri !== kiProxy) {
+    const p = new URL(kiProxy);
+    const token = p.username || p.password ? `Basic ${Buffer.from(`${decodeURIComponent(p.username)}:${decodeURIComponent(p.password)}`).toString('base64')}` : undefined;
+    p.username = '';
+    p.password = '';
+    kiCache = { uri: kiProxy, agent: new ProxyAgent({ uri: p.toString(), ...(token ? { token } : {}) }) };
+  }
+  return kiCache.agent;
+}
+
+/** fetch für KI-Anbieter über `kiDispatcher`. */
+export function fetchKi(url: string, init: Parameters<typeof ufetch>[1] = {}): ReturnType<typeof ufetch> {
+  const d = kiDispatcher(url);
   return ufetch(url, { ...init, ...(d ? { dispatcher: d } : {}) });
 }

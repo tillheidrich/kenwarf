@@ -40,14 +40,31 @@ const MINDESTROLLE: Record<Scope, (u: User) => boolean> = {
   'kern:vorschlagen': (u) => u.rollen.some((r) => r === 'autor' || r === 'freigeber' || r === 'admin'),
   'kern:bericht': (u) => u.rollen.some((r) => r === 'autor' || r === 'freigeber' || r === 'admin'),
   'kern:verwalten': () => false,
+  // v1.4.2: nie über OAuth und nie durch schrittweise Erweiterung; nur als eigenes Token eines Freigebers (REST/CLI).
+  'kern:freigeben': () => false,
 };
 export const scopeErlaubt = (u: User, s: Scope) => MINDESTROLLE[s](u);
 
 /** Bekannte Apps für den Schalter „Nur bekannte Apps“ (Hostnamen der CIMD-URL bzw. Redirect-URI). */
 const BEKANNTE_HOSTS = ['claude.ai', 'claude.com', 'chatgpt.com', 'openai.com', 'localhost', '127.0.0.1'];
 
-/** Pflichthinweis Datenfluss F12 (6.4), nicht wegklickbar. */
-export const F12_HINWEIS = 'Was dieses Programm über MCP abruft (Suchtreffer, Artikel, Antworten, die du sehen darfst), geht an den Anbieter dieses Programms und landet im Kontext seines Modells. Kern kann das nur über die Rechte dieses Zugangs begrenzen.';
+/**
+ * Pflichthinweis Datenfluss F12 (6.4), nicht wegklickbar, ohne Vorauswahl. Wortgleich mit `F12Hinweis` in
+ * web/src/seiten/ErsteSchritte.tsx (übernommen, nicht importiert); der Produktname kommt aus `produkt.name`.
+ */
+export const f12Hinweis = (produkt: string) => `Was dieses Programm über MCP abruft (Suchtreffer, Artikel, Antworten, die du sehen darfst), geht an den Anbieter dieses Programms und landet im Kontext seines Modells. ${produkt} kann das nur über die Rechte dieses Zugangs begrenzen.`;
+/** Mit dem Standardnamen, für Tests und ältere Aufrufer. */
+export const F12_HINWEIS = f12Hinweis('Kern');
+
+/**
+ * Schalter „Nur bekannte Apps“ (6.2): `oauth.nur_bekannte_apps` in kern.yaml; fehlt er, gilt im Managed-Betrieb
+ * an (KERN_MODUS=managed bzw. KERN_MANAGED=1), im Selbstbetrieb aus.
+ */
+export function nurBekannteApps(config: ServerConfig): boolean {
+  const y = leseKernYaml(config.dataDir) as { oauth?: { nur_bekannte_apps?: unknown } };
+  const w = y.oauth?.nur_bekannte_apps;
+  return typeof w === 'boolean' ? w : config.modus === 'managed';
+}
 
 export interface OAuthKontext {
   app: Hono;
@@ -72,6 +89,7 @@ const SCOPE_TEXT: Record<Scope, string> = {
   'kern:vorschlagen': 'Änderungen vorschlagen (ein Mensch gibt frei)',
   'kern:bericht': 'Berichte abrufen',
   'kern:verwalten': 'Verwalten',
+  'kern:freigeben': 'Vorschläge freigeben (nie über OAuth)',
 };
 
 const STIL = `body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f6f6f4;color:#1b1b1b}main{max-width:34rem;margin:2rem auto;padding:1.5rem;background:#fff;border:1px solid #ddd;border-radius:12px}
@@ -100,10 +118,7 @@ export function oauthRouten(k: OAuthKontext): { verfuegbar: boolean } {
 
   const issuer = (c: Context) => k.basisUrl(c);
   const resourceUrl = (c: Context) => `${k.basisUrl(c)}/mcp`;
-  const nurBekannte = (): boolean => {
-    const y = leseKernYaml(config.dataDir) as { oauth?: { nur_bekannte_apps?: boolean; bekannte_hosts?: string[] } };
-    return y.oauth?.nur_bekannte_apps === true;
-  };
+  const nurBekannte = (): boolean => nurBekannteApps(config);
   const bekannteHosts = (): string[] => {
     const y = leseKernYaml(config.dataDir) as { oauth?: { bekannte_hosts?: string[] } };
     return [...BEKANNTE_HOSTS, ...(Array.isArray(y.oauth?.bekannte_hosts) ? y.oauth!.bekannte_hosts!.filter((h) => typeof h === 'string') : [])];
@@ -203,6 +218,7 @@ export function oauthRouten(k: OAuthKontext): { verfuegbar: boolean } {
     const angefragt = (a.scope || STANDARD_SCOPE).split(/\s+/).filter(Boolean);
     if (angefragt.some((s) => !(ALLE_SCOPES as readonly string[]).includes(s))) return fehler('invalid_scope', 'Unbekannter Scope.');
     if (angefragt.includes('kern:verwalten')) return fehler('invalid_scope', 'kern:verwalten gibt es nie über OAuth.');
+    if (angefragt.includes('kern:freigeben')) return fehler('invalid_scope', 'kern:freigeben gibt es nie über OAuth (v1.4.2).');
     return { client, scopes: angefragt as Scope[] };
   };
 
@@ -226,7 +242,7 @@ export function oauthRouten(k: OAuthKontext): { verfuegbar: boolean } {
 ${lokal ? '<p class="warnung">Die Rücksprungadresse liegt auf diesem Rechner (localhost). Erlaube das nur, wenn du das Programm gerade selbst gestartet hast.</p>' : ''}
 <p>Das Programm darf:</p><ul>${erlaubt.map((s) => `<li>${esc(SCOPE_TEXT[s])} <code>${s}</code></li>`).join('')}</ul>
 ${verweigert.length ? `<p>Nicht möglich mit deiner Rolle: ${verweigert.map((s) => `<code>${s}</code>`).join(', ')}.</p>` : ''}
-<p class="hinweis" id="f12">${esc(F12_HINWEIS)}</p>
+<p class="hinweis" id="f12" role="note">${esc(f12Hinweis(produkt))}${anbieter ? ` Anbieter: <strong>${esc(anbieter)}</strong>.` : ''}</p>
 <p>Freigeben, Einstellungen und Benutzerverwaltung sind über diese Verbindung nie möglich. Widerrufen kannst du jederzeit unter Einstellungen › Verbundene Apps.</p>
 <form method="post" action="/oauth/authorize">${versteckt(a)}<input type="hidden" name="csrf" value="${formularToken(sitzung, a)}">
 <button type="submit" name="entscheidung" value="ablehnen">Ablehnen</button><button class="ja" type="submit" name="entscheidung" value="erlauben">Erlauben</button></form>`, produkt));

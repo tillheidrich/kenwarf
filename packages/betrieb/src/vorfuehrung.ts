@@ -8,14 +8,14 @@ import { MollieFake } from './mollie.js';
 import type { DB } from './db.js';
 
 export async function fuelleVorfuehrung(db: DB, uhr: { t: number }, opt: { bereitsteller?: DummyBereitsteller; mollie?: MollieFake } = {}) {
-  const b = opt.bereitsteller ?? new DummyBereitsteller('kenwarf.example.org');
+  const b = opt.bereitsteller ?? new DummyBereitsteller('kern.example.org');
   const m = opt.mollie ?? new MollieFake();
   const echt = uhr.t;
   const tag = 86_400_000;
   uhr.t = echt - 40 * tag;
   const l = new Leitstand({
-    db, bereitsteller: b, mollie: m, jetzt: () => new Date(uhr.t), domain: 'kenwarf.example.org', rechnungLink: 'https://rechnungen.example.org/kunden/{ref}',
-    schalter: { tests_offen: true, managed_domain: 'kenwarf.example.org' },
+    db, bereitsteller: b, mollie: m, jetzt: () => new Date(uhr.t), domain: 'kern.example.org', rechnungLink: 'https://rechnungen.example.org/kunden/{ref}',
+    schalter: { tests_offen: true, managed_domain: 'kern.example.org' },
     geteilteHosts: [
       { id: 'host-01', name: 'Bestand CX33 (nur Demo und Pitch)', region: 'de-nbg', aktiv: true, zweck: ['pitch'], kapazitaet: { container_max: 10, ram_mb: 4096, speicher_bytes: 40 * 1024 ** 3 } },
       { id: 'kern-01', name: 'Kern-Host CX43 Nürnberg', region: 'de-nbg', aktiv: true, zweck: ['test', 'kunde'], kapazitaet: { container_max: 24, ram_mb: 12288, speicher_bytes: 300 * 1024 ** 3 } },

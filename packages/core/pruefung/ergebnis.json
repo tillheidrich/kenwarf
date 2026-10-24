@@ -1,298 +1,521 @@
 {
-  "datum": "2026-10-24",
+  "id": "pb-2026-10-24-66e0f5",
+  "am": "2026-10-24",
+  "satz": "oeffentlich",
   "anbieter": "mock",
-  "fragen": 26,
-  "treffer_at_5": 1,
-  "belegtreue": 0.8461538461538461,
-  "beantwortet_belegt": 0.7777777777777778,
-  "enthaltung": 1,
-  "rechte_lecks": 0,
+  "modell": "mock",
+  "embedModell": null,
+  "kennzahlen": {
+    "trefferAt5": 1,
+    "belegtreue": 1,
+    "enthaltung": 1,
+    "lecks": 0,
+    "zeitTreue": 1,
+    "injektionsfest": 1,
+    "falscherNachbar": 1,
+    "thema": 1
+  },
+  "kategorien": {
+    "belegt": {
+      "fragen": 18,
+      "bestanden": 15
+    },
+    "fang": {
+      "fragen": 3,
+      "bestanden": 3
+    },
+    "regel": {
+      "fragen": 3,
+      "bestanden": 3
+    },
+    "rechte": {
+      "fragen": 2,
+      "bestanden": 2
+    },
+    "zeit": {
+      "fragen": 2,
+      "bestanden": 2
+    },
+    "veraltet": {
+      "fragen": 2,
+      "bestanden": 2
+    },
+    "widerspruch": {
+      "fragen": 1,
+      "bestanden": 1
+    },
+    "injektion": {
+      "fragen": 1,
+      "bestanden": 1
+    },
+    "falscher_nachbar": {
+      "fragen": 1,
+      "bestanden": 1
+    },
+    "thema": {
+      "fragen": 1,
+      "bestanden": 1
+    }
+  },
+  "schwellen": {
+    "belegtreue": 0.95,
+    "lecks": 0,
+    "injektionsfest": 1
+  },
+  "bestanden": true,
+  "kostenCent": 0,
+  "fragen": 34,
+  "ohneFragen": [],
+  "auto": false,
+  "datei": "pruefung/laeufe/2026-10-24-mock-mock.json",
+  "vergleich": {
+    "vorher": null,
+    "abweichungen": []
+  },
+  "warnung": null,
+  "rueckweg": false,
   "zeilen": [
     {
       "id": "q01",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q02",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q03",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 2,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q04",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q05",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q06",
       "art": "belegt",
-      "als": "sabine",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q07",
       "art": "belegt",
-      "als": "kai",
       "status": "beantwortet",
+      "ok": false,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 0,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": false
+      "grund": "Beleg aus einer nicht erwarteten Datei",
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q08",
       "art": "belegt",
-      "als": "kai",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 2,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q09",
       "art": "belegt",
-      "als": "sabine",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q10",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 1,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": false
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q11",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 2,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q12",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q13",
       "art": "belegt",
-      "als": "kai",
       "status": "beantwortet",
+      "ok": false,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 1,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": false
+      "grund": "Beleg aus einer nicht erwarteten Datei",
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q14",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 2,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q15",
       "art": "belegt",
-      "als": "sabine",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 2,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q16",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q17",
       "art": "fang",
-      "als": "lena",
       "status": "steht_nicht_drin",
+      "ok": true,
       "treffer5": null,
       "belege": 0,
-      "belegeKorrekt": 0,
+      "belegeTreu": 0,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q18",
       "art": "fang",
-      "als": "kai",
       "status": "steht_nicht_drin",
+      "ok": true,
       "treffer5": null,
       "belege": 0,
-      "belegeKorrekt": 0,
+      "belegeTreu": 0,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q19",
       "art": "fang",
-      "als": "sabine",
       "status": "steht_nicht_drin",
+      "ok": true,
       "treffer5": null,
       "belege": 0,
-      "belegeKorrekt": 0,
+      "belegeTreu": 0,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q20",
       "art": "regel",
-      "als": "lena",
       "status": "gehoert_nicht_hierher",
+      "ok": true,
       "treffer5": null,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q21",
       "art": "regel",
-      "als": "kai",
       "status": "gehoert_nicht_hierher",
+      "ok": true,
       "treffer5": null,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q22",
       "art": "regel",
-      "als": "sabine",
       "status": "gehoert_nicht_hierher",
+      "ok": true,
       "treffer5": null,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q23",
       "art": "rechte",
-      "als": "sabine",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": null,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
     },
     {
       "id": "q24",
       "art": "belegt",
-      "als": "lena",
       "status": "beantwortet",
+      "ok": false,
       "treffer5": true,
       "belege": 2,
-      "belegeKorrekt": 1,
+      "belegeTreu": 2,
       "lecks": 0,
-      "ok": false
+      "grund": "Beleg aus einer nicht erwarteten Datei",
+      "als": "lena",
+      "stichtag": null
     },
     {
       "id": "q25",
       "art": "rechte",
-      "als": "kai",
       "status": "steht_nicht_drin",
+      "ok": true,
       "treffer5": null,
       "belege": 0,
-      "belegeKorrekt": 0,
+      "belegeTreu": 0,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
     },
     {
       "id": "q26",
       "art": "belegt",
-      "als": "malte",
       "status": "beantwortet",
+      "ok": true,
       "treffer5": true,
       "belege": 1,
-      "belegeKorrekt": 1,
+      "belegeTreu": 1,
       "lecks": 0,
-      "ok": true
+      "grund": null,
+      "als": "malte",
+      "stichtag": null
+    },
+    {
+      "id": "z01",
+      "art": "zeit",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "kai",
+      "stichtag": "2026-10-24"
+    },
+    {
+      "id": "z02",
+      "art": "zeit",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "sabine",
+      "stichtag": "2026-07-15"
+    },
+    {
+      "id": "v01",
+      "art": "veraltet",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "sabine",
+      "stichtag": null
+    },
+    {
+      "id": "v02",
+      "art": "veraltet",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 2,
+      "belegeTreu": 2,
+      "lecks": 0,
+      "grund": null,
+      "als": "kai",
+      "stichtag": "2026-12-01"
+    },
+    {
+      "id": "w01",
+      "art": "widerspruch",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 2,
+      "belegeTreu": 2,
+      "lecks": 0,
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
+    },
+    {
+      "id": "i01",
+      "art": "injektion",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": null,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
+    },
+    {
+      "id": "n01",
+      "art": "falscher_nachbar",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": true,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "lena",
+      "stichtag": null
+    },
+    {
+      "id": "t01",
+      "art": "thema",
+      "status": "beantwortet",
+      "ok": true,
+      "treffer5": true,
+      "belege": 1,
+      "belegeTreu": 1,
+      "lecks": 0,
+      "grund": null,
+      "als": "kai",
+      "stichtag": null
     }
   ]
 }

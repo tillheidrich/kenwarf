@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { proxyDispatcher } from '../src/netz.js';
+import { createServer, type Server } from 'node:http';
+import { fetchKi, kiDispatcher, proxyDispatcher } from '../src/netz.js';
 import { aufraeumen, benutzerSatz, oeffne } from './helfer.js';
 
 afterAll(() => aufraeumen());
@@ -35,5 +36,25 @@ describe('v1.4 3.4: Verbrauchszähler und Nutzung ohne Personenbezug', () => {
     expect(proxyDispatcher('http://127.0.0.1:11434', p)).toBeUndefined();
     expect(proxyDispatcher('http://localhost:11434', p)).toBeUndefined();
     expect(proxyDispatcher('https://ki.intern.example/v1', p)).toBeUndefined();
+  });
+
+  it('KI-Abrufe bevorzugen KERN_KI_PROXY (Kanal .ki) mit Zugangsdaten, sonst HTTP(S)_PROXY', async () => {
+    expect(kiDispatcher('http://127.0.0.1:11434', 'http://a.ki:t@proxy:3128')).toBeUndefined();
+    expect(kiDispatcher('https://api.mistral.ai/v1', 'http://a.ki:t@proxy:3128')).toBeDefined();
+    const gesehen: { url: string; auth: string }[] = [];
+    const proxy: Server = createServer((req, res) => { gesehen.push({ url: req.url ?? '', auth: String(req.headers['proxy-authorization'] ?? '') }); res.end('{}'); });
+    proxy.on('connect', (req, sock) => { gesehen.push({ url: req.url ?? '', auth: String(req.headers['proxy-authorization'] ?? '') }); sock.end('HTTP/1.1 403 Forbidden\r\n\r\n'); });
+    await new Promise<void>((r) => proxy.listen(0, '127.0.0.1', () => r()));
+    const port = (proxy.address() as { port: number }).port;
+    const alt = process.env['KERN_KI_PROXY'];
+    process.env['KERN_KI_PROXY'] = `http://inst1.ki:geheim@127.0.0.1:${port}`;
+    try {
+      await fetchKi('http://ki-anbieter.invalid/v1/chat/completions', { method: 'POST', body: '{}' }).then((r) => r.text()).catch(() => '');
+      expect(gesehen[0]?.url).toMatch(/ki-anbieter\.invalid/);
+      expect(gesehen[0]?.auth).toBe(`Basic ${Buffer.from('inst1.ki:geheim').toString('base64')}`);
+    } finally {
+      if (alt === undefined) delete process.env['KERN_KI_PROXY']; else process.env['KERN_KI_PROXY'] = alt;
+      await new Promise((r) => proxy.close(r));
+    }
   });
 });

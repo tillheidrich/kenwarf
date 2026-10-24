@@ -155,10 +155,16 @@ describe('Ingest je Format', () => {
     expect((await kern.listeQuellen(autor)).map((q) => q.pfad)).not.toContain(alt.quelle.pfad);
   });
 
-  it('nicht unterstützter Typ → verständlicher Fehler', async () => {
-    const p = join(dateien, 'bild.xyz');
-    await writeFile(p, 'x');
-    await expect(kern.fuegeHinzu(autor, { art: 'datei', dateiPfad: p, ...opt })).rejects.toThrow(/nicht unterstützt/);
+  it('v1.4.1 U1: jeder andere Typ wird Anhang ohne Textauszug (Original daneben, kein Vorschlag aus Binärdaten)', async () => {
+    const p = join(dateien, 'skizze.PNG');
+    await writeFile(p, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]));
+    const r = await kern.fuegeHinzu(autor, { art: 'datei', dateiPfad: p, ...opt, kompilieren: false });
+    expect(r.quelle.kopf).toMatchObject({ anhang: true, anhang_typ: 'bild', bytes: 8, herkunft: 'skizze.PNG' });
+    expect(r.quelle.text).toMatch(/^Bild ohne Textauszug: skizze\.png/);
+    expect(await readFile(join(dir, r.quelle.pfad.replace(/\.md$/, '.orig.png')))).toHaveLength(8);
+    const z = join(dateien, 'archiv.zip');
+    await writeFile(z, 'PK');
+    expect((await kern.fuegeHinzu(autor, { art: 'datei', dateiPfad: z, ...opt, kompilieren: false })).quelle.kopf).toMatchObject({ anhang: true, anhang_typ: 'datei' });
   });
 
   it('leser darf nichts hinzufügen', async () => {

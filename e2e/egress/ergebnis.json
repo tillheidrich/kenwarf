@@ -1,0 +1,380 @@
+{
+  "am": "2026-10-24T07:31:01Z",
+  "image": "kern:d2-fd33686",
+  "bestanden": true,
+  "anzahl": 57,
+  "fehlgeschlagen": [],
+  "pruefungen": [
+    {
+      "name": "direkt: KI-Attrappe (öffentliche Adresse) :443",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "direkt: 1.1.1.1:443",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "direkt: Metadaten 169.254.169.254:80",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "direkt: Host im Instanznetz 10.231.0.1:4316",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "direkt: Nachbarinstanz :7480",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "proxy: ohne Anmeldung",
+      "erwartet": 407,
+      "ergebnis": 407,
+      "ok": true
+    },
+    {
+      "name": "proxy: falsches Token",
+      "erwartet": 407,
+      "ergebnis": 407,
+      "ok": true
+    },
+    {
+      "name": "proxy: Token der Nachbarinstanz aus diesem Netz",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy ki: api.mistral.ai:443 (Anbieterliste)",
+      "erwartet": 200,
+      "ergebnis": 200,
+      "ok": true
+    },
+    {
+      "name": "proxy web: api.mistral.ai:443",
+      "erwartet": 200,
+      "ergebnis": 200,
+      "ok": true
+    },
+    {
+      "name": "proxy ki: nicht freigegebener öffentlicher Host",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy web: öffentlicher Host (web_offen)",
+      "erwartet": 200,
+      "ergebnis": 200,
+      "ok": true
+    },
+    {
+      "name": "proxy: Port 8443 auf erlaubtem Host",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Port 22",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: 169.254.169.254:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: http://169.254.169.254/latest/meta-data/",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: [fd00:ec2::254]:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: [::1]:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: [::ffff:127.0.0.1]:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: 127.0.0.1:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: localhost:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: 10.0.0.5:443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Name löst privat auf (boese.example -> 10.0.0.5)",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Name löst öffentlich UND Metadaten auf (doppelt.example)",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Name löst auf Metadaten-IPv6 auf (v6boese.example)",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Caddy kern-caddy:8443",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy: Nachbarinstanz über Proxy",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "proxy ki: eigene-ki.example vor Freigabe",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "instanz: Verwaltung des Proxys aus dem Instanznetz",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "instanz: TLS-Ask aus dem Instanznetz (fremde Subdomains erfragen)",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "fetch (NODE_USE_ENV_PROXY, Kanal web): https://api.mistral.ai/v1/models",
+      "erwartet": 200,
+      "ergebnis": 200,
+      "ok": true
+    },
+    {
+      "name": "fetch (NODE_USE_ENV_PROXY): https://169.254.169.254/",
+      "erwartet": "abgelehnt",
+      "ergebnis": "abgelehnt",
+      "ok": true
+    },
+    {
+      "name": "proxy ki: eigene-ki.example nach Freigabe",
+      "erwartet": 200,
+      "ergebnis": 200,
+      "ok": true
+    },
+    {
+      "name": "proxy ki: eigene-ki.example nach Widerruf",
+      "erwartet": 403,
+      "ergebnis": 403,
+      "ok": true
+    },
+    {
+      "name": "ohne nftables: Host im Instanznetz 10.231.0.1:4316",
+      "erwartet": "verbunden",
+      "ergebnis": "verbunden",
+      "ok": true
+    },
+    {
+      "name": "ohne nftables: KI-Attrappe direkt (Docker-Netz internal hält weiter)",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "direkt: Host im Instanznetz 10.231.0.1:4316",
+      "erwartet": "gesperrt",
+      "ergebnis": "gesperrt",
+      "ok": true
+    },
+    {
+      "name": "verwaltung: Freigabe anlegen",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "verwaltung: Freigabe widerrufen",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "verwaltung: ohne Token",
+      "erwartet": "401",
+      "ergebnis": "401",
+      "ok": true
+    },
+    {
+      "name": "verwaltung: Instanz registrieren (PUT)",
+      "erwartet": "200",
+      "ergebnis": "200",
+      "ok": true
+    },
+    {
+      "name": "verwaltung: Subdomain doppelt",
+      "erwartet": "409",
+      "ergebnis": "409",
+      "ok": true
+    },
+    {
+      "name": "caddy: registrierte Subdomain bekommt Zertifikat (Ziel fehlt, daher 502)",
+      "erwartet": "502",
+      "ergebnis": "502",
+      "ok": true
+    },
+    {
+      "name": "verwaltung: Registrierung löschen",
+      "erwartet": "200",
+      "ergebnis": "200",
+      "ok": true
+    },
+    {
+      "name": "verwaltung: danach unbekannt",
+      "erwartet": "404",
+      "ergebnis": "404",
+      "ok": true
+    },
+    {
+      "name": "caddy: bekannte Instanz https",
+      "erwartet": "200",
+      "ergebnis": "200",
+      "ok": true
+    },
+    {
+      "name": "caddy: /_betrieb/* von außen",
+      "erwartet": "404",
+      "ergebnis": "404",
+      "ok": true
+    },
+    {
+      "name": "caddy: unbekannte Subdomain bekommt kein Zertifikat",
+      "erwartet": "000",
+      "ergebnis": "000",
+      "ok": true
+    },
+    {
+      "name": "caddy: http leitet auf https",
+      "erwartet": "308",
+      "ergebnis": "308",
+      "ok": true
+    },
+    {
+      "name": "instanz: HSTS gesetzt",
+      "erwartet": "1",
+      "ergebnis": "1",
+      "ok": true
+    },
+    {
+      "name": "core: Hinzufügen http://169.254.169.254 abgelehnt",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "core: Hinzufügen boese.example (privat nach DNS) abgelehnt",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "härtung: Wurzeldateisystem nur lesend",
+      "erwartet": "nur_lesen",
+      "ergebnis": "nur_lesen",
+      "ok": true
+    },
+    {
+      "name": "härtung: kein root",
+      "erwartet": "1000",
+      "ergebnis": "1000",
+      "ok": true
+    },
+    {
+      "name": "härtung: cap_drop ALL",
+      "erwartet": [
+        "ALL"
+      ],
+      "ergebnis": [
+        "ALL"
+      ],
+      "ok": true
+    },
+    {
+      "name": "härtung: kein Swap (swap = ram)",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    },
+    {
+      "name": "härtung: seccomp aktiv, no-new-privs, keine Fähigkeiten",
+      "erwartet": true,
+      "ergebnis": true,
+      "ok": true
+    }
+  ],
+  "core_http": {
+    "meta": "400",
+    "boese": "400"
+  },
+  "nft_zaehler": "iifname \"kb-*\" counter packets 0 bytes 0 drop comment \"Instanznetz nach außen oder in fremde Instanz\";oifname \"kb-*\" counter packets 0 bytes 0 drop comment \"von außen direkt in ein Instanznetz\";iifname \"kb-*\" counter packets 3 bytes 180 drop comment \"Instanz an den Host\";",
+  "proxy_gesperrt_zeilen": 43,
+  "instanz_status": {
+    "ok": true,
+    "id": "i_d2test0001",
+    "paket": "test",
+    "zustand": "running",
+    "gesund": "healthy",
+    "neustarts": 0,
+    "grenzen": {
+      "nano_cpus": 1000000000,
+      "ram": 805306368,
+      "swap": 805306368,
+      "pids": 256
+    },
+    "nur_lesen": true,
+    "caps": [
+      "ALL"
+    ],
+    "belegt_bytes": 272586
+  }
+}

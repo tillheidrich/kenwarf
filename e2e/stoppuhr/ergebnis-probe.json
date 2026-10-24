@@ -1,0 +1,44 @@
+{
+  "weg": "docker_run",
+  "image": "kern:d2-probe",
+  "version": "0.1.0",
+  "am": "2026-10-24T07:27:54.461Z",
+  "maschinenzeit_sek": 8.7,
+  "klicks": 5,
+  "soll": {
+    "maschinenzeit_sek": 120,
+    "klicks": 15,
+    "grenze_sek": 300
+  },
+  "schritte": [
+    {
+      "schritt": "healthz",
+      "sek": 4.9,
+      "klicks": 0
+    },
+    {
+      "schritt": "angemeldet",
+      "sek": 6.1,
+      "klicks": 1
+    },
+    {
+      "schritt": "unterlagen_hochgeladen",
+      "sek": 8.3,
+      "klicks": 4
+    },
+    {
+      "schritt": "belegte_antwort_sichtbar",
+      "sek": 8.7,
+      "klicks": 5
+    }
+  ],
+  "bestanden": true,
+  "fehlgeschlagen_bei": null,
+  "luecken": [
+    "Kein Schritt „eigenes Passwort“ beim Weg docker run (Erstzugang aus dem Log gilt weiter).",
+    "Einrichtungsassistent (4.1) erscheint nicht; gemessen über Hinzufügen und Fragen.",
+    "Frische Instanz: Feld „Sammlung“ leer (einstellungen.sammlungen fehlt), Nutzer muss eine Sammlung anlegen."
+  ],
+  "zitat_geprueft": true,
+  "ki_erzeugt": true
+}

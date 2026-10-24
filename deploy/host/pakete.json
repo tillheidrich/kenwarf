@@ -1,0 +1,7 @@
+{
+  "_quelle": "CONTRACT v1.4 Abschnitt 3.1 (Werte [Schätzung], im Leitstand änderbar). Geteilt-Host. io in Byte je Sekunde auf dem Datengerät.",
+  "klein":   { "cpus": "1.0", "ram": "768m",  "ram_reservierung": "256m", "pids": 256, "platte_geteilt": "5g",  "platte_eigen": "10g", "upload_mb": 50,  "io_lesen": "60mb", "io_schreiben": "40mb" },
+  "betrieb": { "cpus": "1.5", "ram": "1g",    "ram_reservierung": "384m", "pids": 256, "platte_geteilt": "15g", "platte_eigen": "25g", "upload_mb": 50,  "io_lesen": "80mb", "io_schreiben": "50mb" },
+  "team":    { "cpus": "2.0", "ram": "1536m", "ram_reservierung": "512m", "pids": 512, "platte_geteilt": "40g", "platte_eigen": "75g", "upload_mb": 100, "io_lesen": "100mb", "io_schreiben": "60mb" },
+  "test":    { "cpus": "1.0", "ram": "768m",  "ram_reservierung": "256m", "pids": 256, "platte_geteilt": "5g",  "platte_eigen": "5g",  "upload_mb": 50,  "io_lesen": "60mb", "io_schreiben": "40mb" }
+}

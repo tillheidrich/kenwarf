@@ -5,6 +5,7 @@ import readline from 'node:readline';
 import { Command, CommanderError, Option } from 'commander';
 import {
   ladeKonfiguration, leseKernYaml, schreibeKernYaml, oeffneKern, starteServer, statusAusFehler, waehleZugang, ALLE_SCOPES, VERSION,
+  agentenScopes, sammelEntscheiden, freigebenErlaubt,
   type Scope,
   type Antwort, type ImportArt, type KernLike, type Rolle, type ServerConfig, type Sichtbarkeit, type User, IMPORT_ARTEN, ROLLEN,
 } from '@kern/server';
@@ -146,7 +147,8 @@ export function baueProgramm(io: Io = standardIo()): Command {
     .argument('<name>', 'Anmeldename')
     .option('-r, --rollen <liste>', `Rollen, kommagetrennt: ${ROLLEN.join(', ')}`, 'leser')
     .option('-t, --teams <liste>', 'Teams, kommagetrennt', '')
-    .action(async (name: string, o: { rollen: string; teams: string }) => {
+    .option('--passwort-aendern', 'beim ersten Anmelden muss ein eigenes Passwort gesetzt werden (z. B. Erstzugang aus dem Log)')
+    .action(async (name: string, o: { rollen: string; teams: string; passwortAendern?: boolean }) => {
       const { kern } = await oeffne();
       const rollen = liste(o.rollen);
       const falsch = rollen.filter((r) => !ROLLEN.includes(r as Rolle));
@@ -155,6 +157,10 @@ export function baueProgramm(io: Io = standardIo()): Command {
       const pw = await liesPasswort(io, `Passwort für ${name}: `);
       if (pw.length < 10) throw new Abbruch('Passwort: mindestens 10 Zeichen.');
       const u = await kern.benutzer.anlegen(name, pw, rollen as Rolle[], liste(o.teams));
+      if (o.passwortAendern || /^(1|true|ja)$/i.test(io.env.KERN_PASSWORT_AENDERN ?? '')) {
+        if (typeof kern.benutzer.aendere !== 'function') throw new Abbruch('Diese core-Version kann die Pflicht zum Passwortwechsel nicht setzen.');
+        await kern.benutzer.aendere(u.id, { mussPasswortAendern: true });
+      }
       io.out(`Benutzer angelegt: ${u.name} (${u.id}), Rollen: ${u.rollen.join(', ')}\n`);
     });
   nutzer.command('liste').description('Benutzer auflisten').option('--json', 'Ausgabe als JSON')
@@ -172,18 +178,29 @@ export function baueProgramm(io: Io = standardIo()): Command {
     .option('-b, --bezeichnung <text>', 'Wofür das Token ist, z. B. "Claude Desktop"', 'MCP')
     .option('--scopes <liste>', `Scopes, kommagetrennt: ${ALLE_SCOPES.join(', ')}`, 'kern:lesen,kern:fragen')
     .option('--tage <zahl>', 'Gültigkeit in Tagen (1 bis 365)', '90')
-    .action(async (name: string, o: { bezeichnung: string; scopes: string; tage: string }) => {
+    .option('--agent <name>', 'Agenten-Zugang (v1.4 8.4): Vorschläge tragen von: agent/<name>@<benutzer>, Scopes fest nach --profil')
+    .option('--profil <profil>', 'Agentenprofil: leser (lesen, fragen) oder autor (dazu vorschlagen, bericht)')
+    .option('--reichweite <r>', 'Einschränkung des Zugangs: ich, team oder betrieb')
+    .action(async (name: string, o: { bezeichnung: string; scopes: string; tage: string; agent?: string; profil?: string; reichweite?: string }) => {
       const { kern, config } = await oeffne();
       const u = (await kern.benutzer.liste()).find((x) => x.name === name);
       if (!u) throw new Abbruch(`Benutzer "${name}" gibt es nicht.`);
-      const scopes = liste(o.scopes) as Scope[];
+      if (o.reichweite && !['ich', 'team', 'betrieb'].includes(o.reichweite)) throw new Abbruch('--reichweite: ich, team oder betrieb.');
+      if (o.profil && !o.agent) throw new Abbruch('--profil gibt es nur zusammen mit --agent.');
+      if (o.profil && !['leser', 'autor'].includes(o.profil)) throw new Abbruch('--profil: leser oder autor.');
+      if (o.profil === 'autor' && !u.rollen.some((r) => r !== 'leser')) throw new Abbruch(`Das Profil autor braucht die Rolle autor; ${u.name} ist nur leser.`);
+      const scopes = o.agent ? agentenScopes((o.profil ?? 'leser') as 'leser' | 'autor') as Scope[] : liste(o.scopes) as Scope[];
       const falsch = scopes.filter((s) => !ALLE_SCOPES.includes(s));
       if (falsch.length || !scopes.length) throw new Abbruch(`Unbekannter Scope: ${falsch.join(', ') || '(keiner)'}. Erlaubt: ${ALLE_SCOPES.join(', ')}`);
       if (scopes.includes('kern:verwalten') && !u.rollen.includes('admin')) throw new Abbruch('kern:verwalten nur für Admins.');
+      if (scopes.includes('kern:freigeben') && !freigebenErlaubt(u, { art: 'mcp', agent: o.agent ?? null })) throw new Abbruch('kern:freigeben nur für eigene Tokens von Freigebern und Admins, nie für Agenten (v1.4.2).');
       const tage = Number(o.tage);
       if (!Number.isInteger(tage) || tage < 1 || tage > 365) throw new Abbruch('--tage: 1 bis 365.');
       const { zugang } = waehleZugang(kern, config.dataDir);
-      const { token: t, eintrag } = zugang.erzeuge(u, { art: 'mcp', bezeichnung: o.bezeichnung, scopes, gueltigSek: tage * 86400 });
+      const { token: t, eintrag } = zugang.erzeuge(u, {
+        art: 'mcp', bezeichnung: o.agent && o.bezeichnung === 'MCP' ? `Agent ${o.agent}` : o.bezeichnung, scopes, gueltigSek: tage * 86400,
+        ...(o.agent ? { agent: o.agent } : {}), ...(o.reichweite ? { reichweite: o.reichweite as 'ich' | 'team' | 'betrieb' } : {}),
+      });
       io.out(`${t}\n`);
       io.err(`Token ${eintrag.id} für ${u.name} angelegt (${scopes.join(', ')}, gültig bis ${eintrag.laeuftAb?.slice(0, 10) ?? 'unbegrenzt'}). Es wird nur jetzt angezeigt.\nNutzung: Authorization: Bearer <token> an <server>/mcp\n`);
     });
@@ -303,6 +320,27 @@ export function baueProgramm(io: Io = standardIo()): Command {
   p.command('ablehnen').description('Vorschlag ablehnen')
     .argument('<id>', 'ID aus "kern eingang"').option('-b, --begruendung <text>', 'Begründung')
     .action(entscheide('ablehnen'));
+  // v1.4.1 U10: Sammelfreigabe mit denselben Rechten wie einzeln (freigeber/admin, Regeln nur admin).
+  p.command('sammelfreigabe').description('Offene Vorschläge gesammelt freigeben oder ablehnen (gleicher Grund, gleiche Quelle, gleicher Absender oder IDs)')
+    .argument('[ids...]', 'IDs aus "kern eingang"')
+    .option('--grund <text>', 'Nur Vorschläge mit genau diesem Grund')
+    .option('--quelle <pfad>', 'Nur Vorschläge aus dieser Quelle')
+    .option('--von <absender>', 'Nur Vorschläge dieses Absenders, z. B. agent/claude@<id>')
+    .option('--art <art>', 'Nur diese Art: neu, aenderung, loeschung, nachtrag')
+    .option('--ablehnen', 'Ablehnen statt freigeben')
+    .option('-b, --begruendung <text>', 'Begründung für den Verlauf')
+    .option('--json', 'Ausgabe als JSON')
+    .action(async (ids: string[], o: { grund?: string; quelle?: string; von?: string; art?: string; ablehnen?: boolean; begruendung?: string; json?: boolean }) => {
+      if (o.art && !['neu', 'aenderung', 'loeschung', 'nachtrag'].includes(o.art)) throw new Abbruch('--art: neu, aenderung, loeschung oder nachtrag.');
+      const { kern } = await oeffne();
+      const r = await sammelEntscheiden(kern, await handelnder(kern), {
+        ...(ids.length ? { ids } : {}), grund: o.grund, quelle: o.quelle, von: o.von, art: o.art as 'neu' | undefined,
+      }, { aktion: o.ablehnen ? 'ablehnen' : 'freigeben', begruendung: o.begruendung }, { ohneRegeln: true }); // v1.4.2: Regeln nur in der Weboberfläche
+      if (o.json) return json(r);
+      io.out(`${r.erledigt.length} von ${r.gefunden} ${o.ablehnen ? 'abgelehnt' : 'freigegeben'}, ${r.konflikte.length} Konflikte, ${r.fehler.length} Fehler.\n`);
+      for (const f of r.fehler) io.err(`${f.id}: ${f.meldung}\n`);
+      for (const k of r.konflikte) io.err(`${k.id}: Konflikt, ${k.ziel} wurde inzwischen geändert.\n`);
+    });
 
   // ---------- reindex, serve ----------
   p.command('reindex').description('Suchindex aus den Dateien neu bauen')
@@ -356,10 +394,13 @@ export function baueProgramm(io: Io = standardIo()): Command {
     const text: Record<string, string> = {
       obsidian: 'Obsidian-Vault (Ordner)', notion: 'Notion-Export (Markdown-ZIP entpackt)', outline: 'Outline-Export (Markdown-Ordner)',
       confluence: 'Confluence-Export (HTML-Ordner)', markdown: 'beliebiger Markdown-Ordner', okf: 'Open-Knowledge-Format-Ordner',
+      'kern-zip': 'ZIP-Export einer anderen Kern-Instanz (POST /api/export art zip)',
     };
     imp.option(`--${art} <pfad>`, text[art]!);
   }
-  imp.action(async (o: Partial<Record<ImportArt, string>>) => {
+  imp.action(async (roh: Record<string, string | undefined>) => {
+    // commander schreibt --kern-zip als kernZip
+    const o = Object.fromEntries(IMPORT_ARTEN.map((a) => [a, roh[a.replace(/-([a-z])/g, (_m, b: string) => b.toUpperCase())]])) as Partial<Record<ImportArt, string>>;
     const gewaehlt = IMPORT_ARTEN.filter((a) => o[a]);
     if (gewaehlt.length !== 1) throw new Abbruch(`Genau eine Quelle angeben: ${IMPORT_ARTEN.map((a) => `--${a} <pfad>`).join(' | ')}`);
     const art = gewaehlt[0]!;
@@ -373,6 +414,31 @@ export function baueProgramm(io: Io = standardIo()): Command {
     else throw new Abbruch(`Diese core-Version kann "${art}" noch nicht importieren.`);
     io.out(`Import (${art}): ${r?.quellen?.length ?? '?'} Quellen, ${r?.vorschlaege?.length ?? '?'} Vorschläge im Eingang${r?.uebersprungen?.length ? `, ${r.uebersprungen.length} übersprungen` : ''}.\n`);
   });
+
+  // ---------- v1.4 8.1 Prüfbank, 7.3 Ausstiegsprobe ----------
+  p.command('pruefbank').description('Prüfbank mit dem eingestellten KI-Anbieter laufen lassen (Belegtreue, Lecks, Injektion)')
+    .option('--satz <satz>', 'oeffentlich (Beispielbetrieb) oder betrieb (eigene Prüffragen)', 'oeffentlich')
+    .option('--json', 'Ausgabe als JSON')
+    .action(async (o: { satz: string; json?: boolean }) => {
+      if (o.satz !== 'oeffentlich' && o.satz !== 'betrieb') throw new Abbruch('--satz: oeffentlich oder betrieb');
+      const { kern } = await oeffne();
+      if (typeof kern.pruefbank !== 'function') throw new Abbruch('Diese core-Version hat noch keine Prüfbank (v1.4 8.1).');
+      const u = await handelnder(kern);
+      const l = await kern.pruefbank(u, { satz: o.satz });
+      if (o.json) { io.out(`${JSON.stringify(l, null, 2)}\n`); return; }
+      const k = l.kennzahlen;
+      io.out(`Prüfbank ${l.satz} mit ${l.anbieter}/${l.modell}: ${l.bestanden ? 'bestanden' : 'NICHT bestanden'}\n  Belegtreue ${k.belegtreue}, Lecks ${k.lecks}, Injektionsfest ${k.injektionsfest}, Treffer@5 ${k.trefferAt5}\n`);
+      if (!l.bestanden) process.exitCode = 1;
+    });
+  p.command('ausstiegsprobe').description('Ausstiegsprobe: Umzugspaket in einen leeren Ordner und prüfen, OKF-Export auf Lesbarkeit ohne Kern')
+    .option('--json', 'Ausgabe als JSON')
+    .action(async (o: { json?: boolean }) => {
+      const { kern } = await oeffne();
+      if (typeof kern.ausstiegsprobe !== 'function') throw new Abbruch('Diese core-Version hat noch keine Ausstiegsprobe (v1.4 7.3).');
+      const r = await kern.ausstiegsprobe(await handelnder(kern));
+      io.out(o.json ? `${JSON.stringify(r, null, 2)}\n` : `Ausstiegsprobe ${r.bestanden ? 'bestanden' : 'NICHT bestanden'} (${r.am}).\n`);
+      if (!r.bestanden) process.exitCode = 1;
+    });
 
   // ---------- mcp (v1.4 6.5) ----------
   const mcpAktion = async (o: { verbinde?: string; tokenEnv: string }) => {
@@ -415,10 +481,12 @@ export function baueProgramm(io: Io = standardIo()): Command {
       const { kern, config } = await oeffne();
       const z = (kern as { zugang?: { exportiere?: () => unknown } }).zugang;
       const b = await pruefeBestand(kern, await handelnder(kern), config.dataDir);
+      // Zugänge exportieren, solange der Zugangsspeicher von core noch offen ist.
+      const zugangExport = typeof z?.exportiere === 'function' ? await z.exportiere() : undefined;
       await kern.schliesse?.();
       const r = packen({
         dataDir: config.dataDir, ziel, version: VERSION, instanz: o.instanz, befundeFehler: b.zahlen.fehler,
-        zugangExport: typeof z?.exportiere === 'function' ? z.exportiere() : undefined,
+        zugangExport: zugangExport as Parameters<typeof packen>[0]['zugangExport'],
         empfaenger: o.empfaenger, passphraseAmTerminal: o.passphrase, unverschluesselt: o.unverschluesselt,
       });
       io.out(`Umzugspaket: ${r.datei} (${r.bytes} Bytes), sha256 ${r.sha256}\nHEAD ${r.head}, ${r.dateien} Dateien im Manifest.\nWeiter am Ziel: kern umzug auspacken <paket> <ordner> und kern umzug pruefen <ordner>\n`);
@@ -427,7 +495,18 @@ export function baueProgramm(io: Io = standardIo()): Command {
   umzug.command('auspacken').description('Umzugspaket in einen neuen, leeren Ordner auspacken')
     .argument('<paket>', 'Paketdatei').argument('<ordner>', 'Zielordner (neu oder leer)')
     .option('-i, --identitaet <datei>', 'age-Identität (privater Schlüssel), sonst Passphrase am Terminal')
-    .action((paket: string, ordner: string, o: { identitaet?: string }) => {
+    .option('--passphrase-env <name>', 'Passphrase aus dieser Umgebungsvariable (ohne Terminal, z. B. per docker exec beim Stufenwechsel); Paket aus POST /api/export bzw. /_betrieb/export')
+    .action(async (paket: string, ordner: string, o: { identitaet?: string; passphraseEnv?: string }) => {
+      if (o.passphraseEnv) {
+        const pw = io.env[o.passphraseEnv];
+        if (!pw) throw new Abbruch(`Passphrase fehlt: Umgebungsvariable ${o.passphraseEnv} setzen.`);
+        const modName = '@kern/core';
+        const core = (await import(modName)) as { umzugAuspacken?: (p: string, z: string, pw: string) => Promise<{ head: string; dateien: unknown[] }> };
+        if (typeof core.umzugAuspacken !== 'function') throw new Abbruch('Diese core-Version kann kein Umzugspaket auspacken.');
+        const m = await core.umzugAuspacken(path.resolve(paket), path.resolve(ordner), pw);
+        io.out(`Ausgepackt nach ${path.resolve(ordner)} (HEAD ${m.head}, ${m.dateien.length} Dateien).\nWeiter mit: kern umzug pruefen ${ordner}\n`);
+        return;
+      }
       const r = auspacken({ paket, ordner, identitaet: o.identitaet });
       io.out(`Ausgepackt nach ${r.ordner} (HEAD ${r.manifest.head}, ${r.manifest.dateien.length} Dateien).\nWeiter mit: kern umzug pruefen ${ordner}\n`);
     });
@@ -440,6 +519,16 @@ export function baueProgramm(io: Io = standardIo()): Command {
       const config = ladeKonfiguration({ dataDir: abs, env });
       const kern = await oeffneKern(config.kern, config.fake);
       try {
+        // Pakete aus core (POST /api/export, /_betrieb/export): core prüft selbst und schreibt .kern/pruefbericht.json.
+        const kc = kern as typeof kern & { umzugPruefen?: (u: User) => Promise<{ bestanden: boolean }> };
+        if (typeof kc.umzugPruefen === 'function' && fs.existsSync(path.join(abs, '.kern', 'umzug-manifest.json'))) {
+          const admin = (await kern.benutzer.liste()).find((x) => x.rollen.includes('admin'));
+          if (!admin) throw new Abbruch('Im Paket ist kein Admin.');
+          const b = await kc.umzugPruefen(admin);
+          if (o.json) json(b); else io.out(b.bestanden ? `UMZUG OK. Prüfbericht ${path.join(abs, '.kern/pruefbericht.json')}\n` : 'UMZUG NICHT OK. Quelle nicht abschalten.\n');
+          if (!b.bestanden) throw new Abbruch('', 1);
+          return;
+        }
         const b = await pruefeUmzug({
           ordner: abs,
           reindex: () => kern.reindex(),

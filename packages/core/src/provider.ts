@@ -1,5 +1,5 @@
 import type { ChatOptionen, ChatNachricht, Provider, ProviderConfig } from './types.js';
-import { fetchMitProxy } from './netz.js';
+import { fetchKi } from './netz.js';
 import { extrahiereJson, saetze, sha256, stammformen, zeilenSaetze } from './util.js';
 
 /* ================================================================== */
@@ -189,7 +189,7 @@ async function postJson(url: string, body: unknown, headers: Record<string, stri
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetchMitProxy(url, {
+    const r = await fetchKi(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),

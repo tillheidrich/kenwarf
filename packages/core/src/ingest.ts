@@ -196,5 +196,17 @@ export async function leseDatei(pfad: string, whisper?: WhisperConfig, grenzen: 
     const t = await transkribiere(pfad, whisper);
     return { text: t, titel: name, original, kopf: { transkript: 'fertig' } };
   }
-  throw new Error(`Dateityp ${ext || '(ohne Endung)'} wird nicht unterstützt (md, txt, html, pdf, docx, Audio)`);
+  // v1.4.1 U1: jeder andere Typ wird ein Anhang ohne Textauszug (Original daneben, kurze Beschreibung als Quelltext)
+  const sicher = (ext.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)) || 'bin';
+  const bild = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'heic', 'tif', 'tiff', 'bmp'].includes(sicher);
+  const kb = Math.max(1, Math.round(daten.length / 1024));
+  return {
+    text: `${bild ? 'Bild' : 'Anhang'} ohne Textauszug: ${name}.${sicher} (${kb} KB). Das Original liegt daneben als .orig.${sicher}.`,
+    titel: name,
+    original: { ext: sicher, daten },
+    kopf: { anhang: true, anhang_typ: bild ? 'bild' : 'datei', bytes: daten.length },
+  };
 }
+
+/** v1.4.1 U1: Standardgrenze je Datei für Anhänge (kern.yaml `anhaenge.max_mb`) [Schätzung]. */
+export const ANHANG_MAX_MB = 25;

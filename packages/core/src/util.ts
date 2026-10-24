@@ -209,10 +209,12 @@ export function sichererPfad(pfad: string): string {
   return p;
 }
 
+const MONATE = 'Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|Jan|Feb|Mär|Apr|Jun|Jul|Aug|Sep|Sept|Okt|Nov|Dez';
+/** Sätze; nie nach einer Ordnungszahl vor einem Monatsnamen trennen („bis 30. September 2026“, Prüfbank veraltet). */
 export function saetze(text: string): string[] {
   return text
     .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?:])\s+(?=[A-ZÄÖÜ0-9„"(*-])/)
+    .split(new RegExp(`(?<=[.!?:])(?<!(?:^|[\\s(])\\d{1,2}\\.)\\s+(?=[A-ZÄÖÜ0-9„"(*-])|(?<=(?:^|[\\s(])\\d{1,2}\\.)\\s+(?=[A-ZÄÖÜ0-9„"(*-])(?!(?:${MONATE})\\b)`, 'u'))
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }

@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import JSZip from 'jszip';
 import { simpleGit } from 'simple-git';
 import { Kern } from '../src/kern.js';
-import { seedDemo } from '../src/seed/index.js';
+import { DEMO_PASSWORT, seedDemo } from '../src/seed/index.js';
 import type { KernConfig, Provider, User } from '../src/types.js';
 
 /** Testserver laufen auf 127.0.0.1 mit zufälligem Port; kein Proxy aus der Sandbox-Umgebung. */
@@ -30,7 +30,7 @@ export async function oeffne(dataDir = tmp(), extra: Partial<KernConfig> & { pro
 /** Seed einmal anlegen und Kern öffnen; gibt Kern und Benutzer nach Vorname zurück. */
 export async function seedKern(extra: Partial<KernConfig> & { providerInstanz?: Provider } = {}): Promise<{ kern: Kern; dir: string; u: Record<string, User> }> {
   const dir = tmp('kern-seed-');
-  await seedDemo(dir, { heute: HEUTE });
+  await seedDemo(dir, { heute: HEUTE, passwort: DEMO_PASSWORT });
   const kern = await oeffne(dir, extra);
   const u: Record<string, User> = {};
   for (const b of await kern.benutzer.liste()) u[b.name.split(' ')[0]!.toLowerCase()] = b;

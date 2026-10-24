@@ -1,5 +1,5 @@
 import { ApiFehler } from './types';
-import type { KernApi, PruefErgebnis, TokenScope, User, ZugangsToken } from './types';
+import type { Datenweg, Einstellungen, KernApi, ProviderArt, PruefbankLauf, PruefErgebnis, TokenScope, User, ZugangsToken } from './types';
 import { apiPfad } from '../lib/pfade';
 
 const BASIS = 'api';
@@ -63,14 +63,51 @@ async function anfrage<T>(methode: string, p: string, body?: unknown): Promise<T
   return daten as T;
 }
 
-/** Server kann `User` direkt oder `{ user }` / `{ ich }` liefern; beides wird akzeptiert. */
-function alsUser(d: unknown): User {
+/**
+ * Server kann `User` direkt, `{ user }`, `{ ich }` oder `{ benutzer }` liefern (S2: Felder oben plus `benutzer`).
+ * Felder neben dem eingebetteten Objekt (modus, mussPasswortAendern, produkt, ki …) bleiben erhalten.
+ */
+export function alsUser(d: unknown): User {
   if (d && typeof d === 'object') {
     const o = d as Record<string, unknown>;
-    if ('user' in o && o.user) return o.user as User;
-    if ('ich' in o && o.ich) return o.ich as User;
+    for (const k of ['user', 'ich', 'benutzer'] as const) {
+      const inner = o[k];
+      if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+        const { [k]: _weg, ...rest } = o;
+        return { ...rest, ...(inner as object) } as unknown as User;
+      }
+    }
   }
   return d as User;
+}
+
+/** Server liefert `chat: { anbieter, endpunkt, region, modell }` (core `datenweg()`); die Oberfläche liest flach. */
+export function alsDatenweg(d: unknown): Datenweg {
+  const o = (d ?? {}) as Record<string, unknown>;
+  const chat = (o.chat && typeof o.chat === 'object' ? o.chat : null) as Record<string, unknown> | null;
+  if (!chat) return o as unknown as Datenweg;
+  const anbieter = String(chat.anbieter ?? o.anbieter ?? 'mock');
+  const endpunkt = (chat.endpunkt as string | null | undefined) ?? null;
+  const lokal = typeof o.lokal === 'boolean' ? o.lokal : anbieter === 'mock' || anbieter === 'ollama' || !endpunkt || /^https?:\/\/(localhost|127\.|\[::1\])/.test(endpunkt);
+  const art = (['mock', 'ollama', 'openai', 'anthropic'].includes(anbieter) ? anbieter : 'openai') as ProviderArt;
+  return {
+    ...(o as object),
+    art: (o.art as ProviderArt | undefined) ?? art,
+    anbieter: anbieter === 'mock' ? 'Keine KI (Testmodus)' : anbieter,
+    endpunkt,
+    region: (chat.region as string | null | undefined) ?? null,
+    lokal,
+    daten: Array.isArray(o.daten) ? (o.daten as string[]) : [],
+  } as Datenweg;
+}
+
+/** Server nennt das Feld `apiKeyGesetzt`, die Oberfläche `hatSchluessel`. */
+export function alsEinstellungen(d: unknown): Einstellungen {
+  const o = (d ?? {}) as Einstellungen & { provider?: Record<string, unknown> };
+  if (o.provider && typeof o.provider === 'object' && o.provider.hatSchluessel === undefined && 'apiKeyGesetzt' in o.provider) {
+    return { ...o, provider: { ...o.provider, hatSchluessel: !!o.provider.apiKeyGesetzt } } as Einstellungen;
+  }
+  return o as Einstellungen;
 }
 
 function qs(o: Record<string, string | undefined>): string {
@@ -138,8 +175,14 @@ export const httpApi: KernApi = {
     const v = Array.isArray(o.vorschlaege) ? o.vorschlaege.length : typeof o.vorschlaege === 'number' ? o.vorschlaege : befunde.length;
     return { befunde, vorschlaege: v };
   },
-  datenweg: () => anfrage('GET', 'datenweg'),
-  heute: () => anfrage('GET', 'heute'),
+  datenweg: async () => alsDatenweg(await anfrage('GET', 'datenweg')),
+  async heute() {
+    // core liefert `ansicht` als { pfad, kopf, text }; die Oberfläche liest die Kopffelder direkt
+    const h = await anfrage<Record<string, unknown>>('GET', 'heute');
+    const a = h.ansicht as Record<string, unknown> | undefined;
+    if (a && typeof a === 'object' && a.kopf && typeof a.kopf === 'object') h.ansicht = { ...(a.kopf as object), pfad: a.pfad };
+    return h as never;
+  },
   async gelesen(e) {
     // Lesestand ist nur für einen selbst; Fehler hier dürfen das Lesen nie stören
     try {
@@ -163,8 +206,8 @@ export const httpApi: KernApi = {
     if (e.datei) f.set('datei', e.datei, e.datei.name);
     return anfrage('POST', 'importieren', f);
   },
-  einstellungen: () => anfrage('GET', 'einstellungen'),
-  speichereEinstellungen: (e) => anfrage('PUT', 'einstellungen', e),
+  einstellungen: async () => alsEinstellungen(await anfrage('GET', 'einstellungen')),
+  speichereEinstellungen: async (e) => alsEinstellungen(await anfrage('PUT', 'einstellungen', e)),
   benutzer: () => anfrage('GET', 'benutzer'),
   legeBenutzerAn: (b) => anfrage('POST', 'benutzer', b),
   async setzePasswortZurueck(id) {
@@ -214,8 +257,17 @@ export const httpApi: KernApi = {
   async speichereKiSchluessel(anbieter, schluessel) {
     await anfrage('PUT', 'einstellungen/ki-schluessel', { anbieter, schluessel });
   },
-  kiZurueck: () => anfrage('POST', 'einstellungen/ki/zurueck', {}),
-  pruefbankLauf: () => anfrage('POST', 'pruefbank/lauf', {}),
+  kiZurueck: async () => alsEinstellungen(await anfrage('POST', 'einstellungen/ki/zurueck', {})),
+  async pruefbankLauf() {
+    // S2: Lauf ist asynchron (202, status 'laeuft'); bis zum Ergebnis GET /api/pruefbank/:id pollen (höchstens 15 Minuten)
+    let l = await anfrage<PruefbankLauf>('POST', 'pruefbank/lauf', {});
+    const ende = Date.now() + 15 * 60_000;
+    while (l && l.status === 'laeuft' && l.id && Date.now() < ende) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      l = await anfrage<PruefbankLauf>('GET', `pruefbank/${encodeURIComponent(l.id)}`);
+    }
+    return l;
+  },
   async pruefbank() {
     try {
       return await anfrage('GET', 'pruefbank');
@@ -249,7 +301,8 @@ export const httpApi: KernApi = {
   },
   async apps() {
     const d = await anfrage<unknown[]>('GET', 'ich/apps');
-    return Array.isArray(d) ? (d.map((x) => ({ ...(x as object), scopes: alsToken(x).scopes })) as never) : [];
+    // Server nennt den Zeitpunkt der Verbindung `erstellt`
+    return Array.isArray(d) ? (d.map((x) => { const o = x as Record<string, unknown>; return { ...o, verbunden: o.verbunden ?? o.erstellt ?? null, scopes: alsToken(x).scopes }; }) as never) : [];
   },
   async trenneApp(clientId) {
     await anfrage('DELETE', `ich/apps/${encodeURIComponent(clientId)}`);

@@ -29,14 +29,14 @@ describe('importiereOutline', () => {
     const start = eingang.find((v) => v.ziel === 'wissen/marke-branding/start.md')!;
     expect(start.neu).toContain('[Farbe](./farbe.md)');
     expect(start.neu).toMatch(/\[handbuch\.pdf\]\(\.\.\/\.\.\/quellen\/2026\/[^)]+\.md\)/);
-    expect(start.neu).toContain('![Logo](https://wiki.example.de/api/attachments.redirect?id=a0000002');
+    expect(start.neu).toContain('![Logo](https://wiki.example.de/api/attachments.redirect?id=22222222');
     expect(start.neu).toContain('outline_schluessel: Start00001');
     expect(start.neu).toMatch(/kommentare: quellen\/2026\//);
     const farbe = eingang.find((v) => v.ziel === 'wissen/marke-branding/farbe.md')!;
     expect(farbe.neu).toContain('[Start](./start.md)');
     expect(farbe.neu).toContain('eltern: wissen/marke-branding/start.md');
     const quellen = await kern.listeQuellen(till);
-    expect(quellen.map((q) => q.kopf.herkunft).sort()).toEqual(['outline-anhang-a0000001-aaaa-4bbb-8ccc-000000000002.pdf', 'outline-farbe00001.md', 'outline-geheim0001.md', 'outline-start00001-kommentare.md', 'outline-start00001.md']);
+    expect(quellen.map((q) => q.kopf.herkunft).sort()).toEqual(['outline-anhang-11111111-1111-4111-8111-111111111111.pdf', 'outline-farbe00001.md', 'outline-geheim0001.md', 'outline-start00001-kommentare.md', 'outline-start00001.md']);
     const q = quellen.find((x) => x.kopf.herkunft === 'outline-start00001.md')!;
     expect(q.text).toContain('> Aus Outline: [Start](https://wiki.example.de/doc/x-Start00001)');
     // Original mit Outline-Kopf bleibt erhalten
@@ -76,7 +76,7 @@ describe('importiereOutline', () => {
   });
 
   it('Rechte: private Sammlung bleibt „ich“, Leser sieht sie nicht, Team-Zuordnung nur für Mitglieder', async () => {
-    const { kern, dir, till, leser, mira } = await neuerKern();
+    const { kern, dir, till, leser, mara } = await neuerKern();
     await importiereOutline(kern, till, beispielBuendel(), { datenOrdner: dir, freigeben: true });
     await kern.reindex();
     const sichtTill = (await kern.listeWissen(till)).map((a) => a.pfad);
@@ -88,7 +88,7 @@ describe('importiereOutline', () => {
     expect(a.status).toBe('steht_nicht_drin');
 
     // Team-Zuordnung durch einen Nicht-Mitglied-Autor fällt auf „ich“ zurück
-    const r = await importiereOutline(kern, mira, beispielBuendel(), { datenOrdner: dir, trockenlauf: true, rechte: { 'Strategie (privat)': 'team:geschaeftsfuehrung' } });
+    const r = await importiereOutline(kern, mara, beispielBuendel(), { datenOrdner: dir, trockenlauf: true, rechte: { 'Strategie (privat)': 'team:geschaeftsfuehrung' } });
     const s = r.sammlungen.find((x) => x.name === 'Strategie (privat)')!;
     expect(s.sichtbarkeit).toBe('ich');
     expect(s.grund).toContain('nicht im Team');
@@ -96,8 +96,8 @@ describe('importiereOutline', () => {
   });
 
   it('freigeben nur mit Rolle freigeber', async () => {
-    const { kern, dir, mira } = await neuerKern();
-    await expect(importiereOutline(kern, mira, beispielBuendel(), { datenOrdner: dir, freigeben: true })).rejects.toThrow(/freigeber/);
+    const { kern, dir, mara } = await neuerKern();
+    await expect(importiereOutline(kern, mara, beispielBuendel(), { datenOrdner: dir, freigeben: true })).rejects.toThrow(/freigeber/);
     await kern.schliesse();
   });
 });

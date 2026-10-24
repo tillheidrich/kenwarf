@@ -38,4 +38,4 @@ Als Bibliothek: `lese()`, `importiereOutline(kern, user, buendel, optionen)`, `b
 
 ## Tests
 
-`npm test -w packages/import-outline`. Der Probeimport (`test/probe.test.ts`) läuft nur, wenn ein MCP-Abzug unter `U1_PROBE` liegt.
+`npm test -w packages/import-outline`. Der Probeimport (`test/probe.test.ts`) erzeugt einen erfundenen MCP-Abzug und läuft immer mit.

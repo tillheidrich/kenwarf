@@ -9,20 +9,20 @@ import { aufraeumen, minimalPdf, neuerKern, tmp } from './helfer.js';
 
 afterEach(aufraeumen);
 
-const ATT = 'a0000001-aaaa-4bbb-8ccc-000000000002';
+const ATT = '11111111-1111-4111-8111-111111111111';
 
 /** JSON-Export wie ExportJSONTask (Outline 1.12.0): <Sammlung>.json + metadata.json + Anhänge unter ihrem Schlüssel. */
 async function jsonZip(): Promise<string> {
   const zip = new JSZip();
   zip.file('metadata.json', JSON.stringify({ exportVersion: 1, version: '1.12.0', createdAt: '2026-10-24T06:00:00Z', createdById: 'u', createdByEmail: null }));
-  const key = `uploads/a0000000-aaaa-4bbb-8ccc-000000000001/${ATT}/handbuch.pdf`;
+  const key = `uploads/33333333-3333-4333-8333-333333333333/${ATT}/handbuch.pdf`;
   zip.file(key, minimalPdf(['Zwanzig Seiten Markenhandbuch.']));
   const para = (text: string, marks?: unknown[]) => ({ type: 'paragraph', content: [{ type: 'text', text, ...(marks ? { marks } : {}) }] });
   zip.file(
     'Marke & Branding.json',
     JSON.stringify({
       collection: {
-        id: 'c1', urlId: 'MarkeAbc01', name: 'Marke & Branding', permission: 'read_write', sort: { field: 'title', direction: 'asc' },
+        id: 'c1', urlId: 'Mk56Ef78Gh', name: 'Marke & Branding', permission: 'read_write', sort: { field: 'title', direction: 'asc' },
         documentStructure: [{ id: 'd1', title: 'Start', url: '/doc/start-Start00001', children: [{ id: 'd2', title: 'Farbe', url: '/doc/farbe-Farbe00001', children: [] }] }],
       },
       documents: {
@@ -64,7 +64,7 @@ describe('leseExport', () => {
   it('JSON-Export: Sammlung mit Recht, Baum, ProseMirror → Markdown, Anhang aus dem Archiv', async () => {
     const b = await leseExport(await jsonZip(), { basisUrl: 'https://wiki.example.de' });
     expect(b.art).toBe('json-zip');
-    expect(b.sammlungen[0]).toMatchObject({ name: 'Marke & Branding', permission: 'read_write', urlId: 'MarkeAbc01' });
+    expect(b.sammlungen[0]).toMatchObject({ name: 'Marke & Branding', permission: 'read_write', urlId: 'Mk56Ef78Gh' });
     expect(b.dokumente.map((d) => d.titel)).toEqual(['Start', 'Farbe']);
     expect(b.dokumente[1]!.elternId).toBe('Start00001');
     expect(b.dokumente[0]!.markdown).toContain('Siehe [Farbe](/doc/d2).');
@@ -125,7 +125,7 @@ describe('leseApi', () => {
         const b = body ? JSON.parse(body) : {};
         switch (req.url!.split('?')[0]) {
           case '/api/collections.list':
-            return j({ data: b.offset ? [] : [{ id: 'c1', urlId: 'MarkeAbc01', url: '/collection/marke-MarkeAbc01', name: 'Marke & Branding', permission: null }] });
+            return j({ data: b.offset ? [] : [{ id: 'c1', urlId: 'Mk56Ef78Gh', url: '/collection/marke-Mk56Ef78Gh', name: 'Marke & Branding', permission: null }] });
           case '/api/collections.documents':
             return j({ data: [{ id: 'd1', title: 'Start', url: '/doc/start-Start00001', children: [] }] });
           case '/api/documents.list':

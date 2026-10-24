@@ -30,3 +30,25 @@ describe('Benutzer', () => {
     await k.schliesse();
   });
 });
+
+describe('S1 N2: Seed ohne feste Passwörter', () => {
+  it('seedDemo zweimal ergibt verschiedene Hashes und Passwörter; demo-passwort gilt nicht', async () => {
+    const { seedDemo } = await import('../src/seed/index.js');
+    const { readFile } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const { tmp, oeffne } = await import('./helfer.js');
+    const a = tmp('seed-a-');
+    const b = tmp('seed-b-');
+    const ra = await seedDemo(a);
+    const rb = await seedDemo(b);
+    expect(ra.benutzer[0]!.passwort.length).toBeGreaterThanOrEqual(16);
+    expect(ra.benutzer[0]!.passwort).not.toBe(rb.benutzer[0]!.passwort);
+    const ha = JSON.parse(await readFile(join(a, '.kern/users.json'), 'utf8'))[0].passwort;
+    const hb = JSON.parse(await readFile(join(b, '.kern/users.json'), 'utf8'))[0].passwort;
+    expect(ha).not.toBe(hb);
+    const k = await oeffne(a);
+    expect(await k.benutzer.pruefe('Jörn Wendt', 'demo-passwort')).toBeNull();
+    expect((await k.benutzer.pruefe('Jörn Wendt', ra.benutzer[0]!.passwort))?.name).toBe('Jörn Wendt');
+    await k.schliesse();
+  });
+});

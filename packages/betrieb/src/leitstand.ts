@@ -18,10 +18,13 @@ import type {
 import { BEISPIELE, KI_VORLAGEN, KONTO_TYPEN, LeitstandFehler, PAKETE, REGIONEN, STUFEN } from './typen.js';
 import type { Wechselauftrag } from './bereitsteller/typ.js';
 import { grenzenFuer, PAKETE_STANDARD, preisCent, SCHALTER_STANDARD, type PaketWerte, type Schalter } from './schalter.js';
+import { MAILS, type Anrede, type Kontext, type MailText } from './mail/texte.js';
+import { anteilig, betragFuer, euro, MOLLIE_INTERVALL, naechsterTermin, vorankuendigungFaellig, type Intervall } from './abrechnung.js';
 
 /** Rechnungswerkzeug (v1.4 3.6): je erfolgreicher Zahlung ein Entwurf aus festen Katalogpositionen. */
 export interface RechnungsTool {
-  entwurf(e: { kunde: Kunde; zahlung_id: string; betrag_cent: number; position: string; festschreiben: boolean }): Promise<{ id: string; link?: string }>;
+  /** Nur Entwürfe. `festschreiben` markiert die stehende Freigabe S-9; festgeschrieben wird immer von Till im Werkzeug. */
+  entwurf(e: { kunde: Kunde; zahlung_id: string; betrag_cent: number; position: string; festschreiben: boolean }): Promise<{ id: string; link?: string; festgeschrieben?: boolean }>;
 }
 
 export interface LeitstandOptionen {
@@ -69,6 +72,11 @@ export class Leitstand {
   readonly rechnungLink?: string;
   private rechnungen?: RechnungsTool;
   readonly oeffentlicheUrl: string;
+  /** Abo-Aufrufe aus synchronen Methoden (Kündigen) laufen hier nacheinander; Tests warten mit `await l.hintergrund`. */
+  hintergrund: Promise<unknown> = Promise.resolve();
+  /** Demo-Zugänge eines Pitches: nur im Speicher, einmal abholbar (Konsole), nie in DB, Vorgang oder Protokoll. */
+  private einmalZugaenge = new Map<string, import('./bereitsteller/typ.js').DemoZugang[]>();
+  holeEinmalZugaenge(iid: string) { const z = this.einmalZugaenge.get(iid) ?? null; this.einmalZugaenge.delete(iid); return z; }
 
   constructor(o: LeitstandOptionen) {
     this.db = o.db;
@@ -379,7 +387,7 @@ export class Leitstand {
       this.ereignis(wer, 'instanz_anlegen', instanz.id, { herkunft: e.herkunft.art, paket: e.paket, region, beispiel, zahlung, stufe, host: host.id, code: e.herkunft.empfehlungscode ?? null });
       const vorgang: Vorgang = {
         id: id('v_'), art: 'instanz_anlegen', instanz_id: instanz.id, status: 'wartet', ausgeloest_von: wer, erstellt: jetzt,
-        schritte: this.bereitsteller.schritte.map((n) => ({ name: n, status: 'wartet' as const })),
+        schritte: (this.bereitsteller.schritteFuer?.(stufe) ?? this.bereitsteller.schritte).map((n) => ({ name: n, status: 'wartet' as const })),
       };
       this.speichereVorgang(vorgang);
       const fertig = await this.fuehreAnlageAus(instanz.id, vorgang.id, e.admin_mail ?? kundeObj?.mail ?? null, status0);
@@ -444,6 +452,12 @@ export class Leitstand {
         if (r.meldung) s.meldung = r.meldung;
         if (r.url) i.url = r.url;
         if (r.version) i.version = r.version;
+        if (r.demo_zugaenge?.length) this.einmalZugaenge.set(iid, r.demo_zugaenge);
+        if (r.einladung) {
+          // Einmal-Passwort nur in die Mail an den Admin, nie in Vorgang oder Prüfprotokoll
+          const k = i.kunde_id ? this.kunde(i.kunde_id) : null;
+          this.sende(`geheim:einladung:${iid}`, k, r.einladung.mail, MAILS.einladung(this.kontext(k), { url: i.url, name: r.einladung.mail, passwort: r.einladung.einmalPasswort }), iid);
+        }
       } catch (err) {
         s.status = 'fehler';
         s.am = this.iso();
@@ -465,12 +479,9 @@ export class Leitstand {
     this.setzeStatus(i, ziel, 'leitstand', 'Anlage fertig');
     await this.setzeGrenzen(iid).catch(() => undefined);
     await this.aktualisiereBetrieb(iid).catch(() => undefined);
-    if (ziel === 'test' && adminMail) {
-      this.mail(`testbeginn:${iid}`, adminMail, 'Dein Zugang ist da',
-        `Deine Testphase endet am ${this.datum(i.test_ende)} um 23:59 Uhr. Drei Schritte bis zur ersten Antwort: anmelden, ein Dokument hinzufügen oder die eigene KI anbinden, eine Frage stellen. Der Export-Knopf liegt unter Einstellungen › Konto. Wenn du nichts tust, wird nichts abgebucht.`, iid);
-    } else if (ziel === 'aktiv' && adminMail) {
-      this.mail(`zugang:${iid}`, adminMail, 'Dein Zugang ist da', 'Deine Instanz ist eingerichtet. Der Einladungslink kommt in einer eigenen Mail. Export jederzeit unter Einstellungen › Konto.', iid);
-    }
+    const kA = i.kunde_id ? this.kunde(i.kunde_id) : null;
+    if (ziel === 'test' && adminMail) this.sende(`testbeginn:${iid}`, kA, adminMail, MAILS.zugang_test(this.kontext(kA, iid), { test_ende: i.test_ende }), iid);
+    else if (ziel === 'aktiv' && adminMail) this.sende(`zugang:${iid}`, kA, adminMail, MAILS.zugang_aktiv(this.kontext(kA, iid)), iid);
     return { instanz: this.instanz(iid), vorgang: this.vorgang(vid) };
   }
 
@@ -525,7 +536,7 @@ export class Leitstand {
     if (i.status === 'test_abgelaufen') { this.setzeStatus(this.instanz(iid), 'test', wer, 'verlängert'); void this.bereitsteller.modus(iid, 'normal'); }
     if (i.kunde_id) {
       const k = this.kunde(i.kunde_id);
-      this.mail(`verlaengert:${iid}:${i.test_ende}`, k.mail, 'Ihre Testphase wurde verlängert', `Neues Testende: ${this.datum(i.test_ende)}.`, iid);
+      this.sende(`verlaengert:${iid}:${i.test_ende}`, k, k.mail, MAILS.verlaengert(this.kontext(k, iid), { test_ende: i.test_ende }), iid);
     }
     return this.instanz(iid);
   }
@@ -653,7 +664,7 @@ export class Leitstand {
     this.ereignis(wer, 'loeschung_geplant', iid, { am, sofort: !!e.sofort, beleg: e.beleg ? 'liegt vor' : null });
     if (new Date(am) <= this.jetzt()) return this.loeschenAusfuehren(iid, e.grund, wer, e.beleg);
     await this.bereitsteller.modus(iid, 'nur_lesen');
-    if (n.kunde_id) { const k = this.kunde(n.kunde_id); this.mail(`loeschung:${iid}:${am}`, k.mail, 'Ankündigung: Löschung Ihrer Instanz', `Ihre Instanz wird am ${this.datum(am)} gelöscht. Bis dahin können Sie lesen und exportieren.`, iid); }
+    if (n.kunde_id) { const k = this.kunde(n.kunde_id); this.sende(`loeschung:${iid}:${am}`, k, k.mail, MAILS.loeschung_am(this.kontext(k, iid), { loeschen_am: am }), iid); }
     return n;
   }
 
@@ -685,7 +696,8 @@ export class Leitstand {
     const h = this.hostOpt(i.host);
     if (h?.stufe === 'eigen') this.speichereHost({ ...h, aktiv: false });
     this.ereignis(wer, 'geloescht', iid, { grund, nachweis });
-    if (i.kunde_id) { const k = this.kunde(i.kunde_id); this.mail(`geloescht:${iid}`, k.mail, 'Gelöscht', `Löschprotokoll: ${b.geloescht_am} · ${b.nachweis}`, iid); }
+    if (i.kunde_id) { const k = this.kunde(i.kunde_id); this.sende(`geloescht:${iid}`, k, k.mail, MAILS.geloescht(this.kontext(k), { am: b.geloescht_am, umfang: b.nachweis }), iid); }
+    await this.aboBeenden(iid, 'Instanz gelöscht').catch(() => undefined);
     return i;
   }
 
@@ -781,7 +793,8 @@ export class Leitstand {
       await this.setzeGrenzen(iid).catch(() => undefined);
       await this.bereitsteller.egress(iid, this.instanz(iid).ki.egress_freigaben).catch(() => undefined);
       const k = i.kunde_id ? this.kunde(i.kunde_id) : null;
-      if (k) this.mail(`stufe:${iid}:${v.id}`, k.mail, `Ihre Instanz läuft jetzt auf: ${STUFEN[nach]}`, `Der Wechsel ist abgeschlossen und geprüft (gleiche Prüfsumme an beiden Orten). Adresse und Zugänge bleiben gleich.`, iid);
+      const neuerBetrag = await this.aboNachStufe(iid).catch((e) => { this.ereignis('leitstand', 'abo_fehler', iid, { meldung: (e as Error).message.slice(0, 200) }); return null; });
+      if (k) this.sende(`stufe:${iid}:${v.id}`, k, k.mail, MAILS.stufe(this.kontext(k, iid), { stufe: STUFEN[nach], ...(neuerBetrag !== null ? { betrag: euro(neuerBetrag) } : {}) }), iid);
       await this.aktualisiereBetrieb(iid).catch(() => undefined);
       return { instanz: this.instanz(iid), vorgang: v };
     });
@@ -857,6 +870,16 @@ export class Leitstand {
     if (i.status !== 'aktiv') throw new LeitstandFehler('konflikt', 'Erst kaufen, dann Stufe wechseln (Test läuft immer geteilt)');
     const s = this.schalter();
     const aufpreis = preisCent(s, this.pakete(), i.paket, nach, false) > preisCent(s, this.pakete(), i.paket, i.stufe, false);
+    const abo = this.aboZu(iid);
+    if (aufpreis && i.zahlung === 'mollie' && abo?.customer_id && abo.mandat_id && this.mollie?.erstelleZahlung) {
+      // G1 P-9/W-3 mit v1.4 3.5: tagesgenaue Differenz über das bestehende Mandat (ohne Checkout), Wechsel erst nach Zahlung
+      const anteil = this.aufpreisAnteilig(iid, { stufe: nach })!;
+      if (anteil.cent > 0) {
+        const z = await this.mollie.erstelleZahlung({ betrag_cent: anteil.cent, beschreibung: `${s.produkt_name}: ${STUFEN[nach]} anteilig (${anteil.resttage}/${anteil.tage} Tage)`, webhookUrl: `${this.oeffentlicheUrl}/v1/webhooks/mollie`, sequenceType: 'recurring', customerId: abo.customer_id, mandateId: abo.mandat_id, metadata: { instanz_id: iid, stufe_wechsel: nach, anteilig: true, idempotenz: `stufe:${iid}:${nach}:${this.iso().slice(0, 10)}` } });
+        this.ereignis('konto', 'stufe_zahlung_gestartet', iid, { nach, zahlung: z.id, betrag_cent: anteil.cent, resttage: anteil.resttage });
+        return { vorgang: null, checkout_url: null, betrag_cent: anteil.cent };
+      }
+    }
     if (aufpreis && i.zahlung === 'mollie') {
       if (!this.mollie?.erstelleZahlung) throw new LeitstandFehler('intern', 'Mollie nicht eingerichtet');
       const k = i.kunde_id ? this.kunde(i.kunde_id) : null;
@@ -870,12 +893,13 @@ export class Leitstand {
   kontoKuendigen(iid: string, wer = 'konto') {
     const i = this.instanz(iid);
     if (i.status !== 'aktiv' && i.status !== 'zahlung_offen') throw new LeitstandFehler('konflikt', 'Keine laufende Buchung');
-    const abo = this.abos().find((a) => a.kunde_id === i.kunde_id && a.status === 'active');
+    const abo = this.aboZu(iid) ?? this.abos().find((a) => a.kunde_id === i.kunde_id && a.status === 'active');
     const zum = abo?.naechste ? new Date(`${abo.naechste}T00:00:00Z`).toISOString() : plusTage(this.iso(), 30);
     i.kuendigung_zum = zum;
     this.speichereInstanz(i);
     this.ereignis(wer, 'gekuendigt', iid, { zum });
-    if (i.kunde_id) { const k = this.kunde(i.kunde_id); this.mail(`kuendigung:${iid}:${zum}`, k.mail, 'Kündigung bestätigt', `Deine Buchung endet am ${this.datum(zum)}. Danach ist alles ${this.schalter().lesefrist_tage} Tage lesbar und herunterladbar.`, iid); }
+    this.hintergrund = this.hintergrund.then(() => this.aboBeenden(iid, 'Kündigung (keine weiteren Einzüge)')).catch((e) => this.ereignis('mollie', 'abo_fehler', iid, { meldung: (e as Error).message.slice(0, 200) }));
+    if (i.kunde_id) { const k = this.kunde(i.kunde_id); this.sende(`kuendigung:${iid}:${zum}`, k, k.mail, MAILS.kuendigung(this.kontext(k, iid), { zum, lesefrist: this.schalter().lesefrist_tage }), iid); }
     return { kuendigung_zum: zum };
   }
   kontoKuendigungZuruecknehmen(iid: string, wer = 'konto') {
@@ -884,6 +908,7 @@ export class Leitstand {
     i.kuendigung_zum = null;
     this.speichereInstanz(i);
     this.ereignis(wer, 'kuendigung_zurueckgenommen', iid);
+    this.hintergrund = this.hintergrund.then(() => this.aboWiederaufnehmen(iid)).catch((e) => this.ereignis('mollie', 'abo_fehler', iid, { meldung: (e as Error).message.slice(0, 200) }));
     return { kuendigung_zum: null };
   }
   /** Der Kunde selbst: einmal 14 Tage (M1, v1.4 W10). */
@@ -903,7 +928,7 @@ export class Leitstand {
     const t = crypto.randomBytes(24).toString('base64url');
     this.db.prepare('INSERT INTO loesch_links (hash, instanz_id, bis) VALUES (?, ?, ?)').run(crypto.createHash('sha256').update(t).digest('hex'), iid, plusTage(this.iso(), 2));
     const k = i.kunde_id ? this.kunde(i.kunde_id) : null;
-    if (k) this.mail(`loeschwunsch:${iid}:${this.iso()}`, k.mail, 'Löschung bestätigen', `Klicke diesen Link, um ${i.subdomain} endgültig zu löschen (48 Stunden gültig): ${this.oeffentlicheUrl}/v1/konto/loeschen/bestaetigen?t=${t}`, iid);
+    if (k) this.sende(`loeschwunsch:${iid}:${this.iso()}`, k, k.mail, MAILS.loeschwunsch(this.kontext(k), { subdomain: i.subdomain, link: `${this.oeffentlicheUrl}/v1/konto/loeschen/bestaetigen?t=${t}` }), iid);
     this.ereignis('konto', 'loeschwunsch', iid);
     return { mail: k ? 'verschickt' : 'kein Konto' };
   }
@@ -1023,6 +1048,10 @@ export class Leitstand {
         // v1.4 3.5: Hochstufen mit Aufpreis erst nach bestätigter Zahlung
         const r = await this.stufeWechseln(instanz.id, meta.stufe_wechsel, 'mollie', `mollie-stufe:${z.id}`);
         ergebnis = r.vorgang.status === 'fertig' ? 'stufe_gewechselt' : 'stufenwechsel_fehler';
+        if (r.vorgang.status !== 'fertig' && this.mollie.erstatte) {
+          // G1 W-2: scheitert der Wechsel, wird nichts berechnet
+          await this.mollie.erstatte(z.id, centAus(z.amount), 'Stufenwechsel nicht ausgeführt, Betrag zurück').then(() => { ergebnis = 'stufenwechsel_fehler, erstattet'; }).catch((e) => this.ereignis('mollie', 'erstattung_fehler', instanz!.id, { meldung: (e as Error).message.slice(0, 200) }));
+        }
       } else if (instanz) {
         if (['test', 'test_abgelaufen', 'zahlung_offen', 'nur_lesen'].includes(instanz.status)) {
           // Kauf aus der Instanz: gewähltes Paket übernehmen, Daten bleiben (G1 T-9), Kunde mit Mollie verknüpfen
@@ -1030,6 +1059,7 @@ export class Leitstand {
           if (instanz.kunde_id && z.customerId) { const k = this.kunde(instanz.kunde_id); if (!k.mollie_customer_id) this.speichereKunde({ ...k, mollie_customer_id: z.customerId }); }
           await this.aktivieren(instanz.id, 'mollie', z.id, 'mollie');
           ergebnis = 'aktiviert';
+          if (z.sequenceType === 'first' && !z.subscriptionId) await this.aboNachErstzahlung(instanz.id, z, meta.intervall === 'jahr' ? 'jahr' : 'monat').catch((e) => this.ereignis('leitstand', 'abo_fehler', instanz!.id, { meldung: (e as Error).message.slice(0, 200) }));
           if (meta.stufe === 'eigen') {
             const r = await this.stufeWechseln(instanz.id, 'eigen', 'mollie', `mollie-kauf-stufe:${z.id}`);
             ergebnis = r.vorgang.status === 'fertig' ? 'aktiviert, eigene Maschine' : 'aktiviert, Stufenwechsel gescheitert';
@@ -1053,6 +1083,7 @@ export class Leitstand {
         }, 'mollie', `mollie:${z.id}`);
         instanz = r.instanz;
         ergebnis = r.vorgang.status === 'fertig' ? 'angelegt' : 'anlage_fehler';
+        if (r.vorgang.status === 'fertig' && z.sequenceType === 'first' && !z.subscriptionId) await this.aboNachErstzahlung(r.instanz.id, z, meta.intervall === 'jahr' ? 'jahr' : 'monat').catch((e) => this.ereignis('leitstand', 'abo_fehler', r.instanz.id, { meldung: (e as Error).message.slice(0, 200) }));
       } else ergebnis = 'bezahlt, keine Instanz zuordenbar';
     } else if (['failed', 'expired', 'canceled'].includes(z.status) && z.sequenceType === 'recurring' && instanz?.status === 'aktiv') {
       this.setzeStatus(instanz, 'zahlung_offen', 'mollie', `Abbuchung ${z.status}`);
@@ -1061,6 +1092,7 @@ export class Leitstand {
       this.speichereInstanz(n);
       instanz = n;
       ergebnis = 'zahlung_offen';
+      if (n.kunde_id) { const k = this.kunde(n.kunde_id); this.sende(`zahlung_offen:${n.id}:${z.id}`, k, k.mail, MAILS.zahlung_offen(this.kontext(k, n.id), { kulanz_bis: n.kulanz_bis }), n.id); }
     }
 
     const kunde_id = instanz?.kunde_id ?? null;
@@ -1072,14 +1104,16 @@ export class Leitstand {
       try {
         const sch = this.schalter();
         const r = await this.rechnungen.entwurf({ kunde: this.kunde(kunde_id), zahlung_id: z.id, betrag_cent: zeile.betrag_cent, position: `${sch.produkt_name} ${instanz ? PAKETE[instanz.paket] : ''}`.trim(), festschreiben: sch.rechnung_stehende_freigabe });
-        zeile.rechnung = { entwurf: r.id, ...(r.link ? { link: r.link } : {}), festgeschrieben: sch.rechnung_stehende_freigabe };
+        zeile.rechnung = { entwurf: r.id, ...(r.link ? { link: r.link } : {}), festgeschrieben: r.festgeschrieben === true };
       } catch (e) { this.ereignis('leitstand', 'rechnung_fehler', instanz?.id ?? null, { zahlung: z.id, meldung: (e as Error).message.slice(0, 200) }); }
     }
     this.db.prepare('INSERT INTO zahlungen (id, daten) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET daten = excluded.daten').run(z.id, JSON.stringify(zeile));
     if (z.subscriptionId && z.customerId) {
       try {
         const a = await this.mollie.holeAbo(z.customerId, z.subscriptionId);
-        const abo: Abo = { id: a.id, kunde_id, status: a.status, betrag_cent: centAus(a.amount), intervall: a.interval, naechste: a.nextPaymentDate ?? null };
+        const alt = this.abos().find((x) => x.id === a.id);
+        const abo: Abo = { ...alt, id: a.id, kunde_id, status: a.status, betrag_cent: centAus(a.amount), intervall: a.interval, naechste: a.nextPaymentDate ?? null,
+          ...(z.status === 'paid' && z.sequenceType === 'recurring' ? { zeitraum_beginn: (z.paidAt ?? z.createdAt).slice(0, 10), vorangekuendigt: null } : {}) };
         this.db.prepare('INSERT INTO abos (id, daten) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET daten = excluded.daten').run(a.id, JSON.stringify(abo));
         // v1.4 W11: beendet Mollie das Abo bei offener Zahlung, sofort nur_lesen
         if (instanz && ['canceled', 'suspended', 'completed'].includes(a.status) && this.instanz(instanz.id).status === 'zahlung_offen') {
@@ -1092,6 +1126,136 @@ export class Leitstand {
     this.db.prepare('INSERT OR IGNORE INTO webhooks (zahlung_id, status, am, ergebnis) VALUES (?, ?, ?, ?)').run(z.id, z.status, this.iso(), ergebnis);
     this.ereignis('mollie', 'webhook', instanz?.id ?? null, { zahlung: z.id, status: z.status, ergebnis });
     return { ergebnis };
+  }
+
+  // ---------- Mollie-Abo (Subscriptions API) ----------
+  /** Abo der Instanz aus dem Spiegel, falls der Leitstand es angelegt hat. */
+  aboZu(iid: string): Abo | null {
+    return this.abos().filter((a) => a.instanz_id === iid && (a.status === 'active' || a.status === 'pending')).sort((a, b) => (b.zeitraum_beginn ?? '').localeCompare(a.zeitraum_beginn ?? ''))[0] ?? null;
+  }
+  private speichereAbo(a: Abo) { this.db.prepare('INSERT INTO abos (id, daten) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET daten = excluded.daten').run(a.id, JSON.stringify(a)); }
+  private monatspreis(i: Instanz, paket = i.paket, stufe = i.stufe) { return preisCent(this.schalter(), this.pakete(), paket, stufe, i.ki.weg === 'eigener_schluessel'); }
+
+  /**
+   * Nach bezahlter Erstzahlung (`sequenceType=first`) das Abo anlegen: Mandat prüfen (nur `valid`), Start nach dem
+   * ersten Zeitraum, den die Erstzahlung schon deckt. Idempotent: gibt es schon ein Abo zur Instanz, passiert nichts.
+   */
+  async aboNachErstzahlung(iid: string, z: { id: string; customerId?: string; paidAt?: string; createdAt: string }, intervall: Intervall): Promise<Abo | null> {
+    if (this.aboZu(iid)) return this.aboZu(iid);
+    const m = this.mollie;
+    if (!m?.erstelleAbo || !z.customerId) { this.ereignis('leitstand', 'abo_nicht_angelegt', iid, { zahlung: z.id, grund: z.customerId ? 'Mollie ohne Abo-API' : 'Zahlung ohne Kunde' }); return null; }
+    const mandate = m.mandate ? await m.mandate(z.customerId) : [];
+    const mandat = mandate.find((x) => x.status === 'valid');
+    if (m.mandate && !mandat) { this.ereignis('leitstand', 'abo_nicht_angelegt', iid, { zahlung: z.id, grund: 'kein gültiges Mandat' }); return null; }
+    const i = this.instanz(iid);
+    const beginn = (z.paidAt ?? z.createdAt).slice(0, 10);
+    const start = naechsterTermin(beginn, intervall);
+    const betrag = betragFuer(this.monatspreis(i), intervall);
+    const a = await m.erstelleAbo(z.customerId, {
+      betrag_cent: betrag, intervall: MOLLIE_INTERVALL[intervall], startDate: start, webhookUrl: `${this.oeffentlicheUrl}/v1/webhooks/mollie`,
+      beschreibung: `${this.schalter().produkt_name} ${i.subdomain}`, metadata: { instanz_id: iid }, ...(mandat ? { mandateId: mandat.id } : {}),
+    });
+    const abo: Abo = { id: a.id, kunde_id: i.kunde_id, status: a.status, betrag_cent: centAus(a.amount), intervall: a.interval, naechste: a.nextPaymentDate ?? start,
+      instanz_id: iid, customer_id: z.customerId, ...(mandat ? { mandat_id: mandat.id } : {}), zeitraum_beginn: beginn, paket: i.paket, stufe: i.stufe, eigener_schluessel: i.ki.weg === 'eigener_schluessel', vorangekuendigt: null };
+    this.speichereAbo(abo);
+    this.ereignis('mollie', 'abo_angelegt', iid, { abo: a.id, betrag_cent: abo.betrag_cent, intervall: a.interval, start });
+    return abo;
+  }
+
+  /** Laufender Zeitraum eines Abos [beginn, ende): ende = nächste Abbuchung. */
+  private zeitraum(a: Abo): { beginn: string; ende: string } {
+    const ende = a.naechste ?? naechsterTermin(this.iso().slice(0, 10), a.intervall.startsWith('12') ? 'jahr' : 'monat');
+    const beginn = a.zeitraum_beginn && a.zeitraum_beginn < ende ? a.zeitraum_beginn : this.iso().slice(0, 10);
+    return { beginn, ende };
+  }
+
+  /** G1 P-9/W-3: Differenz für den Rest des Zeitraums tagesgenau (positiv = Nachzahlung). */
+  aufpreisAnteilig(iid: string, ziel: { paket?: Paket; stufe?: Stufe }): { cent: number; resttage: number; tage: number; neu_monat_cent: number } | null {
+    const i = this.instanz(iid);
+    const a = this.aboZu(iid);
+    if (!a) return null;
+    const jahr = a.intervall.startsWith('12');
+    const alt = betragFuer(this.monatspreis(i), jahr ? 'jahr' : 'monat');
+    const neuMonat = this.monatspreis(i, ziel.paket ?? i.paket, ziel.stufe ?? i.stufe);
+    const neu = betragFuer(neuMonat, jahr ? 'jahr' : 'monat');
+    const { beginn, ende } = this.zeitraum(a);
+    return { ...anteilig({ alt_cent: alt, neu_cent: neu, beginn, ende, heute: this.iso().slice(0, 10) }), neu_monat_cent: neuMonat };
+  }
+
+  /** Nach Stufen- oder Paketwechsel: Abo-Betrag für künftige Zahlungen setzen (PATCH). Liefert den neuen Monatsbetrag. */
+  async aboNachStufe(iid: string): Promise<number | null> {
+    const a = this.aboZu(iid);
+    if (!a || !a.customer_id || !this.mollie?.aendereAbo) return null;
+    const i = this.instanz(iid);
+    const jahr = a.intervall.startsWith('12');
+    const neu = betragFuer(this.monatspreis(i), jahr ? 'jahr' : 'monat');
+    if (neu === a.betrag_cent) return this.monatspreis(i);
+    const vorher = a.betrag_cent;
+    await this.mollie.aendereAbo(a.customer_id, a.id, { betrag_cent: neu });
+    // W-5: im Jahresvertrag entsteht beim Wechsel nach unten ein Guthaben für den Rest
+    const guthaben = jahr && neu < vorher ? -anteilig({ alt_cent: vorher, neu_cent: neu, ...this.zeitraum(a), heute: this.iso().slice(0, 10) }).cent : 0;
+    this.speichereAbo({ ...a, betrag_cent: neu, paket: i.paket, stufe: i.stufe, guthaben_cent: (a.guthaben_cent ?? 0) + guthaben });
+    this.ereignis('mollie', 'abo_geaendert', iid, { abo: a.id, von_cent: vorher, nach_cent: neu, guthaben_cent: guthaben });
+    return this.monatspreis(i);
+  }
+
+  /** Abo bei Mollie beenden (Kündigung wirksam, Löschung, nur_lesen). Idempotent. */
+  async aboBeenden(iid: string, grund: string) {
+    const a = this.aboZu(iid);
+    if (!a || !a.customer_id || !this.mollie?.kuendigeAbo) return;
+    await this.mollie.kuendigeAbo(a.customer_id, a.id);
+    this.speichereAbo({ ...a, status: 'canceled', naechste: null, naechste_vorher: a.naechste });
+    this.ereignis('mollie', 'abo_beendet', iid, { abo: a.id, grund });
+  }
+
+  /** Kündigung zurückgenommen: neues Abo zum alten nächsten Termin (gekündigte Abos lassen sich bei Mollie nicht ändern). */
+  async aboWiederaufnehmen(iid: string) {
+    if (this.aboZu(iid)) return;
+    const alt = this.abos().filter((a) => a.instanz_id === iid && a.status === 'canceled' && a.customer_id && a.naechste_vorher).sort((a, b) => (b.naechste_vorher ?? '').localeCompare(a.naechste_vorher ?? ''))[0];
+    if (!alt || !this.mollie?.erstelleAbo) return;
+    const i = this.instanz(iid);
+    const n = await this.mollie.erstelleAbo(alt.customer_id!, { betrag_cent: alt.betrag_cent, intervall: alt.intervall.startsWith('12') ? '12 months' : '1 month', startDate: alt.naechste_vorher!, webhookUrl: `${this.oeffentlicheUrl}/v1/webhooks/mollie`, beschreibung: `${this.schalter().produkt_name} ${i.subdomain}`, metadata: { instanz_id: iid }, ...(alt.mandat_id ? { mandateId: alt.mandat_id } : {}) });
+    this.speichereAbo({ ...alt, id: n.id, status: n.status, naechste: n.nextPaymentDate ?? alt.naechste_vorher!, naechste_vorher: null });
+    this.ereignis('mollie', 'abo_wieder_angelegt', iid, { abo: n.id });
+  }
+
+  // ---------- Mails ----------
+  private anrede(k: Kunde | null): Anrede { return k?.berufsgeheimnis ? 'sie' : 'du'; }
+  kontext(k: Kunde | null, iid?: string): Kontext {
+    let konto: string | undefined;
+    if (iid) { try { konto = `${this.instanz(iid).url}/einstellungen/konto`; } catch { konto = undefined; } }
+    return { anrede: this.anrede(k), produkt: this.schalter().produkt_name, datum: (x) => this.datum(x), ...(konto ? { konto_url: konto } : {}) };
+  }
+  /** Mail in den Postausgang. Hinweise (nicht Vertragsmails) gehen nicht an abgemeldete Adressen. */
+  sende(schluessel: string, _k: Kunde | null, an: string, m: MailText, iid?: string) {
+    if (m.art === 'hinweis' && this.abgemeldet(an)) { this.ereignis('leitstand', 'hinweis_unterdrueckt', iid ?? null, { grund: 'abgemeldet' }); return; }
+    this.mail(m.art === 'geheim' && !schluessel.startsWith('geheim:') ? `geheim:${schluessel}` : schluessel, an, m.betreff, m.text, iid);
+    if (m.art === 'hinweis') {
+      const link = this.abmeldeLink(an);
+      this.db.prepare('UPDATE postausgang SET kopf = ? WHERE schluessel = ?').run(JSON.stringify({ 'List-Unsubscribe': `<${link}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }), schluessel);
+    }
+  }
+  private abmeldeTabelle() {
+    this.db.exec('CREATE TABLE IF NOT EXISTS mail_abmeldungen (token TEXT PRIMARY KEY, mail TEXT NOT NULL UNIQUE, abgemeldet_am TEXT)');
+    const da = new Set((this.db.prepare('PRAGMA table_info(postausgang)').all() as { name: string }[]).map((c) => c.name));
+    if (!da.has('kopf')) this.db.exec('ALTER TABLE postausgang ADD COLUMN kopf TEXT');
+  }
+  abmeldeLink(mail: string): string {
+    this.abmeldeTabelle();
+    const m = mail.trim().toLowerCase();
+    let r = this.db.prepare('SELECT token FROM mail_abmeldungen WHERE mail = ?').get(m) as { token: string } | undefined;
+    if (!r) { r = { token: crypto.randomBytes(18).toString('base64url') }; this.db.prepare('INSERT INTO mail_abmeldungen (token, mail) VALUES (?, ?)').run(r.token, m); }
+    return `${this.oeffentlicheUrl}/v1/abmelden?t=${r.token}`;
+  }
+  mailAbmelden(token: string): boolean {
+    this.abmeldeTabelle();
+    const r = this.db.prepare('UPDATE mail_abmeldungen SET abgemeldet_am = ? WHERE token = ? AND abgemeldet_am IS NULL').run(this.iso(), token);
+    if (r.changes) this.ereignis('mail', 'hinweise_abgemeldet', null, {});
+    return r.changes > 0 || !!this.db.prepare('SELECT 1 FROM mail_abmeldungen WHERE token = ?').get(token);
+  }
+  private abgemeldet(mail: string) {
+    this.abmeldeTabelle();
+    return !!this.db.prepare('SELECT 1 FROM mail_abmeldungen WHERE mail = ? AND abgemeldet_am IS NOT NULL').get(mail.trim().toLowerCase());
   }
 
   // ---------- Postausgang ----------
@@ -1122,14 +1286,13 @@ export class Leitstand {
           case 'erinnern':
             if (k && a.art === 'test_endet') {
               const lf = this.schalter().lesefrist_tage;
-              this.mail(`erinnerung:${i.id}:${a.tage}:${i.test_ende}`, k.mail, `Deine Testphase endet am ${this.datum(i.test_ende)}`,
-                `Gleich gestaltete Knöpfe: Kaufen · ${i.test_selbst_verlaengert ? '' : 'Einmal 14 Tage verlängern · '}Alles herunterladen · Jetzt löschen. Wenn du nichts tust, wird nichts abgebucht. Danach ist alles ${lf} Tage nur lesbar, du kannst alles herunterladen, dann löschen wir und sagen vorher Bescheid.`, i.id);
+              this.sende(`erinnerung:${i.id}:${a.tage}:${i.test_ende}`, k, k.mail, MAILS.test_endet(this.kontext(k, i.id), { test_ende: i.test_ende, verlaengern_moeglich: !i.test_selbst_verlaengert, lesefrist: lf }), i.id);
               automatisch.push(`${i.subdomain}: Erinnerung ${a.tage} Tag(e) vor Testende vorgemerkt`);
             } else if (k && a.art === 'halbzeit') {
-              this.mail(`halbzeit:${i.id}`, k.mail, 'Halbzeit', 'Halbzeit deiner Testphase. Deine Kontextbilanz zeigt, was schon drin ist und was als Nächstes hilft.', i.id);
+              this.sende(`halbzeit:${i.id}`, k, k.mail, MAILS.halbzeit({ ...this.kontext(k, i.id), abmelden_url: this.abmeldeLink(k.mail) }), i.id);
               automatisch.push(`${i.subdomain}: Halbzeit-Mail vorgemerkt`);
             } else if (k && a.art === 'loeschung_bald') {
-              this.mail(`loeschung:${i.id}:${i.loeschen_am}`, k.mail, `Löschung am ${this.datum(i.loeschen_am)}`, `Deine Instanz wird am ${this.datum(i.loeschen_am)} gelöscht. Bis dahin kannst du alles herunterladen.`, i.id);
+              this.sende(`loeschung:${i.id}:${i.loeschen_am}`, k, k.mail, MAILS.loeschung_am(this.kontext(k, i.id), { loeschen_am: i.loeschen_am! }), i.id);
               automatisch.push(`${i.subdomain}: Löschankündigung vorgemerkt`);
             }
             break;
@@ -1138,9 +1301,10 @@ export class Leitstand {
             await this.bereitsteller.modus(i.id, 'nur_lesen');
             if (k) {
               const am = plusTage(a.nach === 'test_abgelaufen' && i.test_ende ? i.test_ende : this.iso(), this.schalter().lesefrist_tage);
-              this.mail(`statusende:${i.id}:${a.nach}:${i.test_ende ?? i.kuendigung_zum ?? i.kulanz_bis}`, k.mail, a.nach === 'test_abgelaufen' ? 'Testphase beendet' : 'Deine Instanz ist jetzt nur lesbar',
-                `${a.grund}. Alles bleibt lesbar und herunterladbar bis ${this.datum(am)}, dann löschen wir und sagen vorher Bescheid.`, i.id);
+              // nur_lesen nach Kündigung oder Zahlungsausfall: die Mail „Lesephase Tag 1“ folgt im selben Lauf
+              if (a.nach === 'test_abgelaufen') this.sende(`statusende:${i.id}:${a.nach}:${i.test_ende}`, k, k.mail, MAILS.test_beendet(this.kontext(k, i.id), { loeschen_am: am }), i.id);
             }
+            if (a.nach === 'nur_lesen') await this.aboBeenden(i.id, a.grund).catch(() => undefined);
             automatisch.push(`${i.subdomain}: ${a.grund}, jetzt nur lesen`);
             i = this.instanz(i.id);
             break;
@@ -1148,7 +1312,7 @@ export class Leitstand {
             i.loeschen_am = a.am;
             this.speichereInstanz(i);
             const ank = new Date(a.am).getTime() - FRISTEN.loeschung_ankuendigen_vor * 86_400_000;
-            if (k && this.jetzt().getTime() >= ank) this.mail(`loeschung:${i.id}:${a.am}`, k.mail, 'Ankündigung: Löschung Ihrer Instanz', `Ihre Instanz wird am ${this.datum(a.am)} gelöscht. Bis dahin können Sie exportieren.`, i.id);
+            if (k && this.jetzt().getTime() >= ank) this.sende(`loeschung:${i.id}:${a.am}`, k, k.mail, MAILS.loeschung_am(this.kontext(k, i.id), { loeschen_am: a.am }), i.id);
             this.ereignis('planer', 'loeschung_terminiert', i.id, { am: a.am });
             automatisch.push(`${i.subdomain}: Löschung zum ${this.datum(a.am)} terminiert`);
             break;
@@ -1196,6 +1360,30 @@ export class Leitstand {
       this.ereignis('planer', 'rueckfall_geloescht', r.instanz_id, { host: r.host, nachweis });
       automatisch.push(`${r.instanz_id}: alte Instanz auf ${r.host} gelöscht (Rückfallfrist vorbei)`);
     }
+    // v1.4 3.3: Lesephase nach Kündigung oder Zahlungsausfall, Mails an Tag 1, 14 und 28
+    const lf = this.schalter().lesefrist_tage;
+    for (const i of this.instanzen({ status: 'nur_lesen' })) {
+      if (!i.kunde_id || !i.loeschen_am) continue;
+      const start = new Date(i.loeschen_am).getTime() - lf * 86_400_000;
+      const tag = Math.floor((this.jetzt().getTime() - start) / 86_400_000) + 1;
+      const k = this.kunde(i.kunde_id);
+      for (const t of [1, 14, 28] as const) if (tag >= t && tag < t + 3) {
+        this.sende(`lesephase:${i.id}:${t}:${i.loeschen_am}`, k, k.mail, MAILS.lesephase(this.kontext(k, i.id), { tag: t, loeschen_am: i.loeschen_am }), i.id);
+        if (tag === t) automatisch.push(`${i.subdomain}: Lesephase Tag ${t} vorgemerkt`);
+      }
+    }
+    // G1 Z-2: spätestens 3 Tage vor jedem Einzug Mail mit Betrag und Datum
+    for (const a of this.abos()) {
+      if (a.status !== 'active' || !a.instanz_id || !a.naechste || a.vorangekuendigt === a.naechste) continue;
+      if (!vorankuendigungFaellig(a.naechste, this.iso().slice(0, 10))) continue;
+      const i = this.instanz(a.instanz_id);
+      if (i.kuendigung_zum || !i.kunde_id) continue;
+      const k = this.kunde(i.kunde_id);
+      this.sende(`vorankuendigung:${a.id}:${a.naechste}`, k, k.mail, MAILS.vorankuendigung(this.kontext(k, i.id), { betrag: euro(a.betrag_cent), am: `${a.naechste}T10:00:00Z` }), i.id);
+      this.speichereAbo({ ...a, vorangekuendigt: a.naechste });
+      automatisch.push(`${i.subdomain}: Einzug am ${a.naechste} angekündigt`);
+    }
+    if (this.bereitsteller.wartung) for (const m of await this.bereitsteller.wartung().catch((e) => [`Wartung gescheitert: ${(e as Error).message.slice(0, 120)}`])) automatisch.push(m);
     this.ereignis('planer', 'planerlauf', null, { automatisch: automatisch.length, klick: klick.length });
     return { automatisch, klick };
   }

@@ -225,7 +225,13 @@ export interface Zahlung {
   /** Entwurf im Rechnungswerkzeug (v1.4 3.6); festgeschrieben nur mit S-9. */
   rechnung?: { entwurf: string; link?: string; festgeschrieben: boolean };
 }
-export interface Abo { id: string; kunde_id: string | null; status: 'pending' | 'active' | 'canceled' | 'suspended' | 'completed'; betrag_cent: number; intervall: string; naechste: string | null }
+export interface Abo {
+  id: string; kunde_id: string | null; status: 'pending' | 'active' | 'canceled' | 'suspended' | 'completed'; betrag_cent: number; intervall: string; naechste: string | null;
+  // additiv (P2): vom Leitstand angelegte Abos
+  instanz_id?: string; customer_id?: string; mandat_id?: string; zeitraum_beginn?: string; paket?: Paket; stufe?: Stufe; eigener_schluessel?: boolean;
+  /** Guthaben aus Wechsel nach unten im Jahresvertrag (W-5), nur als Zahl geführt. */
+  guthaben_cent?: number; vorangekuendigt?: string | null; naechste_vorher?: string | null;
+}
 
 export interface Auszahlungszeile { partner: string; name: string; monat: string; kunde: string; zahlung_id: string; betrag_cent: number; provision_cent: number; status: 'offen' | 'ausgezahlt'; ausgezahlt_am: string | null }
 

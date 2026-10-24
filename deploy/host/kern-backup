@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# kern-backup: stündliche Sicherung je Instanz mit restic, Aufbewahrung, automatischer Wiederherstellungstest
+# (CONTRACT v1.4 3.8, O1 6.2). Ein restic-Repository und ein Schlüssel je Instanz; Löschen der Instanz vernichtet
+# den Schlüssel (dann sind auch Kopien im Aufbewahrungszyklus des Ziels unlesbar).
+#
+#   kern-backup sichern  <id>|alle        Schnappschuss (stündlich per Timer). Vorher konsistente Kopien der SQLite-Dateien.
+#   kern-backup pflege   <id>|alle        Aufbewahrung 24 stündlich / 14 täglich / 8 wöchentlich / 12 monatlich, prune
+#                                          (braucht Schreib-/Löschrecht am Ziel: KERN_BACKUP_PFLEGE_ZIEL, nicht das append-only-Ziel)
+#   kern-backup test     <id>|zufall|alle Neuesten Stand ohne Netz einspielen und prüfen; Bericht als JSON-Zeile
+#   kern-backup vernichten <id>           Schlüssel vernichten (beim Löschen der Instanz), Repository löschen, falls Pflegeziel gesetzt
+#   kern-backup liste    <id>             Schnappschüsse (Zeit, Größe), ohne Dateinamen
+#
+# Umgebung (aus $KERN_BASIS/host.env):
+#   KERN_BACKUP_ZIEL      Basis des Ziels, je Instanz wird /<id> angehängt, z. B. rest:https://kern-host-01:<pw>@backup.example:8000
+#                         (rest-server --append-only: ein übernommener Host kann Sicherungen nicht löschen)
+#   KERN_BACKUP_PFLEGE_ZIEL  gleiches Ziel mit Lösch-Recht (läuft am besten vom Leitstand oder Backup-Rechner aus)
+#   KERN_BACKUP_ZIEL2     optional zweites Ziel (anderer EU-Anbieter), wird täglich mit "sichern --ziel2" beschrieben
+#   KERN_BERICHT_URL      optional: Ergebnis des Wiederherstellungstests per POST an den Leitstand (Bearer KERN_BERICHT_TOKEN)
+#   RESTIC=restic         restic-Binärdatei   KERN_IMAGE  Image für den Test (Standard: Image der laufenden Instanz)
+# Schlüssel: $KERN_BASIS/geheim/backup/<id>.pass (root, 0600). Der Leitstand hält eine Kopie; ohne sie ist eine
+# Wiederherstellung nach Verlust des Hosts nicht möglich.
+set -euo pipefail
+KERN_BASIS="${KERN_BASIS:-/srv/kern}"
+[ -f "$KERN_BASIS/host.env" ] && { set -a; . "$KERN_BASIS/host.env"; set +a; }
+RESTIC="${RESTIC:-restic}"
+GEHEIM="$KERN_BASIS/geheim/backup"
+BERICHTE="$KERN_BASIS/berichte"
+export RESTIC_PROGRESS_FPS=0.016 RESTIC_CACHE_DIR="${RESTIC_CACHE_DIR:-$KERN_BASIS/cache/restic}"
+
+meldung() { echo "kern-backup: $*" >&2; }
+pruefe_id() { [[ "$1" =~ ^i_[a-z0-9]{10}$ ]] || { meldung "ungültige Instanz-ID"; exit 2; }; }
+ids() { case "$1" in alle) ls "$KERN_BASIS/instanzen" 2>/dev/null | grep -E '^i_[a-z0-9]{10}$' || true ;;
+  zufall) ls "$KERN_BASIS/instanzen" 2>/dev/null | grep -E '^i_[a-z0-9]{10}$' | shuf -n 1 || true ;; *) pruefe_id "$1"; echo "$1" ;; esac; }
+repo() { local basis="${2:-${KERN_BACKUP_ZIEL:?KERN_BACKUP_ZIEL fehlt}}"; echo "${basis%/}/$1"; }
+schluessel() {
+  install -d -m 0700 "$GEHEIM"
+  if [ ! -s "$GEHEIM/$1.pass" ]; then (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$GEHEIM/$1.pass"); fi
+  echo "$GEHEIM/$1.pass"
+}
+r() { local id="$1" ziel="$2"; shift 2; RESTIC_REPOSITORY="$(repo "$id" "$ziel")" RESTIC_PASSWORD_FILE="$(schluessel "$id")" "$RESTIC" "$@"; }
+
+# Konsistente Kopien der SQLite-Speicher (Sitzungen, Zugänge, OAuth, Zähler) über die Online-Backup-API von SQLite,
+# im laufenden Container. Der Index wird nicht gesichert (wegwerfbar, wird neu gebaut).
+sqlite_kopien() {
+  local id="$1"
+  docker exec "kern-$id" node -e '
+    const fs = require("fs"), path = require("path"); const D = require("/app/node_modules/better-sqlite3");
+    const k = "/daten/.kern", z = path.join(k, "sicherung"); fs.mkdirSync(z, { recursive: true, mode: 0o700 });
+    (async () => { let n = 0;
+      for (const f of fs.readdirSync(k)) {
+        if (!f.endsWith(".sqlite") || f.startsWith("index")) continue;
+        const db = new D(path.join(k, f), { readonly: true, fileMustExist: true });
+        await db.backup(path.join(z, f + ".tmp")); db.close(); fs.renameSync(path.join(z, f + ".tmp"), path.join(z, f)); n++;
+      }
+      console.log(n);
+    })().catch((e) => { console.error(e.message); process.exit(1); });'
+}
+
+cmd_sichern() {
+  local id="$1" ziel="${2:-}"; local daten="$KERN_BASIS/instanzen/$id/daten" t0; t0="$(date +%s)"
+  [ -d "$daten" ] || { meldung "$id: kein Datenordner"; return 1; }
+  local n=0 head=""
+  if docker inspect "kern-$id" >/dev/null 2>&1 && [ "$(docker inspect -f '{{.State.Running}}' "kern-$id")" = true ]; then n="$(sqlite_kopien "$id")"; fi
+  head="$(git -C "$daten" -c safe.directory='*' rev-parse HEAD 2>/dev/null || echo ohne)"
+  r "$id" "$ziel" cat config >/dev/null 2>&1 || r "$id" "$ziel" init >/dev/null
+  # Ausgeschlossen: Index (wegwerfbar), laufende SQLite-Dateien (die konsistenten Kopien liegen in .kern/sicherung/),
+  # Uploads in Arbeit. Erstzugang bleibt drin (sonst nach Wiederherstellung kein Zugang, solange er nicht geändert ist).
+  local aus
+  aus="$(r "$id" "$ziel" backup --json --quiet --host kern --tag kern --tag "instanz=$id" --tag "head=$head" \
+    --exclude "$daten/.kern/index.sqlite*" --exclude "$daten/.kern/*.sqlite" --exclude "$daten/.kern/*.sqlite-wal" \
+    --exclude "$daten/.kern/*.sqlite-shm" --exclude "$daten/.kern/upload" "$daten" | tail -1)"
+  jq -c --arg id "$id" --arg head "$head" --argjson n "$n" --argjson s "$(( $(date +%s) - t0 ))" \
+    '{ok:true, aktion:"sichern", id:$id, snapshot:.snapshot_id, bytes_neu:.data_added, dateien:.total_files_processed, sqlite_kopien:$n, head:$head, sekunden:$s}' <<< "$aus"
+}
+
+cmd_pflege() {
+  local id="$1" ziel="${KERN_BACKUP_PFLEGE_ZIEL:-${KERN_BACKUP_ZIEL:-}}"
+  r "$id" "$ziel" forget --tag kern --keep-hourly 24 --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune --quiet >&2
+  r "$id" "$ziel" check --read-data-subset=2% --quiet >&2
+  printf '{"ok":true,"aktion":"pflege","id":"%s"}\n' "$id"
+}
+
+cmd_test() {
+  local id="$1" t0; t0="$(date +%s%3N)"
+  local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/kern-wiederherstellung.XXXXXX")"
+  local name="kern-wt-$id-$$" ergebnis="fehler" grund="" befunde=0 fehler_n=0 snap="" alter=null head_soll="" head_ist=""
+  aufraeumen_test() { docker rm -f "$name" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+  trap aufraeumen_test RETURN
+  local js; js="$(r "$id" "" snapshots --json --tag "instanz=$id" --latest 1 2>/dev/null || echo '[]')"
+  snap="$(jq -r '.[-1].short_id // empty' <<< "$js")"
+  if [ -z "$snap" ]; then grund="kein_schnappschuss"
+  else
+    alter="$(( ( $(date +%s) - $(date -d "$(jq -r '.[-1].time' <<< "$js")" +%s) ) / 60 ))"
+    head_soll="$(jq -r '.[-1].tags[] | select(startswith("head=")) | sub("^head=";"")' <<< "$js")"
+    if timeout "${KERN_BACKUP_RESTORE_MAX:-1800}" env RESTIC_REPOSITORY="$(repo "$id")" RESTIC_PASSWORD_FILE="$(schluessel "$id")" "$RESTIC" restore "$snap" --target "$tmp" --quiet >&2; then
+      local daten; daten="$(find "$tmp" -name kern.yaml -printf '%h\n' | head -1)"
+      if [ -z "$daten" ]; then grund="kein_datenordner"
+      else
+        # SQLite-Kopien an ihren Platz
+        if [ -d "$daten/.kern/sicherung" ]; then for f in "$daten/.kern/sicherung/"*.sqlite; do [ -e "$f" ] && cp "$f" "$daten/.kern/"; done; fi
+        chown -R 1000:1000 "$tmp"
+        head_ist="$(git -C "$daten" -c safe.directory='*' rev-parse HEAD 2>/dev/null || echo ohne)"
+        local image="${KERN_IMAGE:-$(docker inspect -f '{{.Config.Image}}' "kern-$id" 2>/dev/null || echo kern:latest)}"
+        local aus
+        aus="$(docker run --rm --name "$name" --network none --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+          --user 1000:1000 --memory 768m --memory-swap 768m -v "$daten:/daten" --entrypoint sh "$image" -c '
+            set -e
+            git -C /daten fsck --no-progress --no-dangling >/dev/null 2>&1 && echo GIT_OK || echo GIT_FEHLER
+            [ -s /daten/.kern/users.json ] && echo NUTZER_OK || echo NUTZER_FEHLT
+            kern -d /daten reindex >/dev/null 2>&1 && echo INDEX_OK || echo INDEX_FEHLER
+            kern -d /daten pruefen --json > /tmp/b.json 2>/dev/null || true
+            node -e "const b=require(\"/tmp/b.json\");console.log(\"BEFUNDE\",b.befunde.length,b.befunde.filter(x=>x.schwere===\"fehler\").length)" 2>/dev/null || echo BEFUNDE_FEHLER
+          ' 2>/dev/null || true)"
+        befunde="$(awk '/^BEFUNDE /{print $2}' <<< "$aus")"; befunde="${befunde:-0}"
+        fehler_n="$(awk '/^BEFUNDE /{print $3}' <<< "$aus")"; fehler_n="${fehler_n:-0}"
+        if ! grep -q GIT_OK <<< "$aus"; then grund="git"
+        elif ! grep -q NUTZER_OK <<< "$aus"; then grund="nutzer_fehlen"
+        elif ! grep -q INDEX_OK <<< "$aus"; then grund="index"
+        elif grep -q BEFUNDE_FEHLER <<< "$aus" || ! grep -q '^BEFUNDE ' <<< "$aus"; then grund="pruefen"
+        elif [ "$fehler_n" != 0 ]; then grund="befunde_mit_fehler"
+        elif [ -n "$head_soll" ] && [ "$head_soll" != ohne ] && [ "$head_soll" != "$head_ist" ]; then grund="head_weicht_ab"
+        else ergebnis="ok"; fi
+      fi
+    else grund="restore"; fi
+  fi
+  local bericht
+  bericht="$(jq -nc --arg id "$id" --arg snap "$snap" --arg e "$ergebnis" --arg g "$grund" --argjson b "${befunde:-0}" --argjson f "${fehler_n:-0}" \
+    --argjson alter "$alter" --argjson ms "$(( $(date +%s%3N) - t0 ))" --arg am "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{am:$am, aktion:"wiederherstellen_test", id:$id, snapshot:$snap, ergebnis:$e, grund:(if $g=="" then null else $g end), befunde:$b, fehler:$f, alter_min:$alter, dauer_ms:$ms}')"
+  install -d -m 0750 "$BERICHTE"
+  echo "$bericht" >> "$BERICHTE/wiederherstellung-$(date -u +%Y-%m).jsonl"
+  if [ -n "${KERN_BERICHT_URL:-}" ]; then
+    curl -sS --max-time 15 -X POST -H "authorization: Bearer ${KERN_BERICHT_TOKEN:-}" -H 'content-type: application/json' \
+      -H "idempotency-key: $(cat /proc/sys/kernel/random/uuid)" --data "$bericht" "$KERN_BERICHT_URL" >/dev/null || meldung "Bericht an den Leitstand nicht zugestellt"
+  fi
+  echo "$bericht"
+  [ "$ergebnis" = ok ]
+}
+
+cmd_vernichten() {
+  local id="$1"
+  if [ -n "${KERN_BACKUP_PFLEGE_ZIEL:-}" ]; then
+    # Alle Schnappschüsse vergessen und Daten entfernen; danach den Schlüssel vernichten
+    local alle; alle="$(r "$id" "$KERN_BACKUP_PFLEGE_ZIEL" snapshots --json 2>/dev/null | jq -r '.[].id' || true)"
+    # shellcheck disable=SC2086
+    [ -n "$alle" ] && r "$id" "$KERN_BACKUP_PFLEGE_ZIEL" forget --prune --quiet $alle >&2
+  fi
+  if [ -f "$GEHEIM/$id.pass" ]; then shred -u "$GEHEIM/$id.pass" 2>/dev/null || rm -f "$GEHEIM/$id.pass"; fi
+  printf '{"ok":true,"aktion":"vernichten","id":"%s","schluessel":"vernichtet"}\n' "$id"
+}
+
+cmd_liste() { r "$1" "" snapshots --json --tag "instanz=$1" | jq -c '[.[] | {zeit:.time, id:.short_id, bytes:(.summary.total_bytes_processed // null)}]'; }
+
+befehl="${1:-}"; ziel_arg="${2:-}"
+[ -n "$ziel_arg" ] || { sed -n '2,24p' "$0" >&2; exit 64; }
+rc=0
+case "$befehl" in
+  sichern) for id in $(ids "$ziel_arg"); do cmd_sichern "$id" "${3:+${KERN_BACKUP_ZIEL2:?}}" || rc=1; done ;;
+  pflege) for id in $(ids "$ziel_arg"); do cmd_pflege "$id" || rc=1; done ;;
+  test) for id in $(ids "$ziel_arg"); do cmd_test "$id" || rc=1; done ;;
+  vernichten) pruefe_id "$ziel_arg"; cmd_vernichten "$ziel_arg" ;;
+  liste) pruefe_id "$ziel_arg"; cmd_liste "$ziel_arg" ;;
+  *) sed -n '2,24p' "$0" >&2; exit 64 ;;
+esac
+exit $rc

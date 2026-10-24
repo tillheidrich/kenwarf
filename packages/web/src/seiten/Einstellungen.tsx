@@ -37,7 +37,7 @@ const ANBIETER: { art: ProviderArt; titel: string; unter: string }[] = [
   { art: 'mock', titel: 'Testmodus', unter: 'Ohne KI. Antwortet mit wörtlichen Sätzen aus den Fundstellen.' },
   { art: 'ollama', titel: 'Ollama, lokal', unter: 'Läuft auf eurem eigenen Rechner oder Server. Nichts geht nach außen.' },
   { art: 'openai', titel: 'OpenAI-kompatibel', unter: 'Zum Beispiel Mistral, IONOS, STACKIT oder ein eigener vLLM-Server.' },
-  { art: 'anthropic', titel: 'Anthropic', unter: 'Claude über die API. Anbieter mit Sitz in den USA.' },
+  { art: 'anthropic', titel: 'Anthropic', unter: 'Claude über die API.' },
 ];
 
 const STIL_TEXT: Record<Lesestil, { titel: string; unter: string }> = {
@@ -511,11 +511,7 @@ function Ki({ e, kannAendern, speichern }: { e: E; kannAendern: boolean; speiche
               {(p) => <input {...p} class="eingabe" type="password" autocomplete="off" placeholder={e.provider.hatSchluessel && e.provider.art === art ? '•••••••• gespeichert' : ''} value={schluessel} onInput={(x) => setSchluessel((x.target as HTMLInputElement).value)} />}
             </Feld>
           )}
-          {art === 'anthropic' && (
-            <Hinweis art="warnung" icon="warnung" titel="Anbieter außerhalb der EU">
-              <p>Fragen und gefundene Abschnitte gehen an Server in den USA. Klärt vorher den Vertrag zur Auftragsverarbeitung.</p>
-            </Hinweis>
-          )}
+          {art === 'anthropic' && <p class="klein-text datenfluss">{(e.voreinstellungen ?? []).find((x) => x.id === 'anthropic')?.datenfluss ?? 'Fragen und gefundene Abschnitte gehen an Anthropic, Server in den USA (Drittland).'}</p>}
           {kannAendern && (
             <div class="knopf-reihe">
               <Knopf art="primaer" type="submit" laedt={laedt === 'speichern'} icon="haken">

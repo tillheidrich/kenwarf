@@ -5,7 +5,7 @@ import type { User } from '../api/types';
 import { Feld, Knopf } from '../ui/teile';
 import { Icon } from '../ui/Icon';
 
-export function Anmelden({ angemeldet }: { angemeldet: (u: User) => void }) {
+export function Anmelden({ angemeldet }: { angemeldet: (u: User, passwort: string) => void }) {
   const [name, setName] = useState('');
   const [passwort, setPasswort] = useState('');
   const [zeigen, setZeigen] = useState(false);
@@ -21,7 +21,7 @@ export function Anmelden({ angemeldet }: { angemeldet: (u: User) => void }) {
     setLaedt(true);
     setFehler(null);
     try {
-      angemeldet(await api.login(name.trim(), passwort));
+      angemeldet(await api.login(name.trim(), passwort), passwort);
     } catch (err) {
       setFehler(err instanceof Error ? err.message : 'Anmelden hat nicht geklappt.');
       setLaedt(false);

@@ -16,6 +16,11 @@ describe('Zugangsspeicher (Sitzungen, API/MCP, OAuth 2.1)', () => {
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'mcp' }, b.admin)).toThrow(expect.objectContaining({ code: 'keine_rechte' }));
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'mcp', scopes: ['kern:alles' as never] })).toThrow(expect.objectContaining({ code: 'ungueltig' }));
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'mcp', scopes: ['kern:verwalten'] })).toThrow(expect.objectContaining({ code: 'keine_rechte' }));
+    // v1.4.2: kern:freigeben nur explizit, nur Freigeber/Admin, nie Agent, nie Standard
+    expect(() => kern.zugang.erzeuge(b.autor, { art: 'api', scopes: ['kern:freigeben'] })).toThrow(expect.objectContaining({ code: 'keine_rechte' }));
+    expect(() => kern.zugang.erzeuge(b.admin, { art: 'mcp', agent: 'nachtlauf', scopes: ['kern:lesen', 'kern:freigeben'] })).toThrow(expect.objectContaining({ code: 'keine_rechte' }));
+    expect(kern.zugang.erzeuge(b.admin, { art: 'api', scopes: ['kern:freigeben'] }).eintrag.scopes).toContain('kern:freigeben');
+    expect(kern.zugang.erzeuge(b.admin, { art: 'sitzung' }).eintrag.scopes).not.toContain('kern:freigeben');
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'mcp', gueltigSek: null as never })).toThrow(expect.objectContaining({ code: 'ungueltig' }));
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'api', gueltigSek: 366 * 86400 })).toThrow(expect.objectContaining({ code: 'ungueltig' }));
     expect(() => kern.zugang.erzeuge(b.leser, { art: 'mcp', scopes: ['kern:lesen', 'kern:vorschlagen'] })).toThrow(expect.objectContaining({ code: 'keine_rechte' }));

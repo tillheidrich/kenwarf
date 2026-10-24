@@ -78,6 +78,26 @@ export function erstelleApp(o: AppOptionen) {
     return c.text('', 200); // immer 200, Mollie wiederholt sonst; Verarbeitung ist idempotent
   });
 
+  // ---------- Rückruf aus cloud-init einer eigenen Maschine (Einmal-Token, öffentlich) ----------
+  app.post('/v1/rueckruf/:id', async (c) => {
+    const id = c.req.param('id');
+    const b = l.bereitsteller as { rueckruf?: (id: string, t: string, body: { ipv4?: string }) => boolean; eigen?: { rueckruf: (id: string, t: string, body: { ipv4?: string }) => boolean } | null };
+    const ziel = b.rueckruf ? b : b.eigen ?? null;
+    const h = c.req.header('authorization') ?? '';
+    const body = (await c.req.json().catch(() => ({}))) as { ipv4?: string };
+    const ok = !!ziel && /^i_[a-z0-9]{10}$/.test(id) && h.startsWith('Bearer ') && ziel.rueckruf!(id, h.slice(7), body);
+    l.ereignis('hetzner', ok ? 'rueckruf' : 'rueckruf_abgelehnt', ok ? id : null);
+    return ok ? c.json({ ok: true }) : c.json({ fehler: 'nicht erlaubt', code: 'nicht_erlaubt' }, 401);
+  });
+
+  // ---------- Hinweis-Mails abbestellen (nur Hinweise; Vertragsmails gehen weiter) ----------
+  const abmelden = (c: Context) => {
+    const ok = l.mailAbmelden(c.req.query('t') ?? '');
+    return c.html(`<!doctype html><meta charset="utf-8"><title>Abbestellt</title><p>${ok ? 'Erledigt. Du bekommst keine Hinweise mehr. Mails zu Vertrag, Fristen und Löschung kommen weiter, weil sie nötig sind.' : 'Dieser Link ist ungültig.'}</p>`, ok ? 200 : 404);
+  };
+  app.get('/v1/abmelden', abmelden);
+  app.post('/v1/abmelden', abmelden);
+
   // ---------- Konto-Brücke aus der Instanz (v1.4 3.5): Bearer KERN_KONTO_TOKEN, gilt nur für die eigene Instanz ----------
   const kontoFehler = (c: Context, e: unknown) => {
     if (e instanceof LeitstandFehler) return c.json({ fehler: e.message, code: e.code }, e.code === 'nicht_gefunden' ? 404 : e.code === 'konflikt' ? 409 : e.code === 'nicht_erlaubt' ? 403 : e.code === 'ungueltig' ? 400 : 500);
@@ -229,9 +249,15 @@ export function erstelleApp(o: AppOptionen) {
   }));
   app.post('/instanzen/pitch', aktion(() => '/instanzen/neu?art=pitch', async (c, g) => {
     const r = await l.pitchAnlegen({ beispiel: g('beispiel') as Beispiel, tage: Number(g('tage') || 7), ...(g('fuer') ? { fuer: g('fuer') } : {}) }, c.get('admin'), g('_idem') || undefined);
-    return zurueck(`/instanzen/${r.instanz.id}`, 'meldung', `Pitch läuft. Demo-Zugänge mit Passwort „demo-passwort“.`);
+    return zurueck(`/instanzen/${r.instanz.id}`, 'meldung', 'Pitch läuft. Die Demo-Zugänge stehen einmalig auf dieser Seite.');
   }));
-  app.get('/instanzen/:id', (c) => { try { return c.html(<InstanzSeite l={l} k={kx(c)} i={l.instanz(c.req.param('id'))} />); } catch { return c.notFound(); } });
+  app.get('/instanzen/:id', (c) => {
+    let i;
+    try { i = l.instanz(c.req.param('id')); } catch { return c.notFound(); }
+    const zugaenge = l.holeEinmalZugaenge(i.id); // genau einmal sichtbar
+    if (zugaenge) c.header('Cache-Control', 'no-store');
+    return c.html(<InstanzSeite l={l} k={kx(c)} i={i} zugaenge={zugaenge} />);
+  });
   const ip_ = (c: Context<Env>) => `/instanzen/${c.req.param('id')}`;
   app.post('/instanzen/:id/verlaengern', aktion(ip_, (c, g) => { const i = l.testVerlaengern(c.req.param('id')!, Number(g('tage')), g('grund'), c.get('admin')); return `Verlängert bis ${new Date(i.test_ende!).toLocaleDateString('de-DE')}.`; }));
   app.post('/instanzen/:id/pausieren', aktion(ip_, async (c, g) => { await l.pausieren(c.req.param('id')!, g('grund'), c.get('admin')); return 'Pausiert.'; }));
@@ -265,7 +291,7 @@ export function erstelleApp(o: AppOptionen) {
   app.post('/kunden/:id', aktion((c) => `/kunden/${c.req.param('id')}`, (c, g) => { l.kundeAendern(c.req.param('id')!, { ...kontoAusForm(g), empfehlungscode: g('empfehlungscode'), zuordnung_zustimmung: g('zuordnung_zustimmung') === '1' }, c.get('admin')); return 'Gespeichert.'; }));
 
   // Partner
-  app.get('/partner', (c) => c.html(<PartnerSeite l={l} k={kx(c)} basisUrl={o.websiteUrl ?? 'https://kenwarf.example.org'} />));
+  app.get('/partner', (c) => c.html(<PartnerSeite l={l} k={kx(c)} basisUrl={o.websiteUrl ?? 'https://kern.example.org'} />));
   app.post('/partner', aktion(() => '/partner', (c, g) => { const p = l.partnerAnlegen({ code: g('code'), name: g('name'), art: (g('art') || 'empfehler') as never, provision_prozent: Number(g('provision_prozent') || 0), laufzeit_monate: Number(g('laufzeit_monate') || 0), aktiv: true, ...(g('mail') ? { mail: g('mail') } : {}), ...(g('vereinbarung') ? { vereinbarung: g('vereinbarung') } : {}) }, c.get('admin')); return `Partner ${p.code} angelegt.`; }));
   app.post('/partner/auszahlung', aktion(() => '/partner', (c, g) => { const s = l.auszahlungVermerken(g('code'), g('monat'), g('vermerk'), c.get('admin')); return `Auszahlung über ${(s / 100).toFixed(2).replace('.', ',')} € vermerkt.`; }));
 

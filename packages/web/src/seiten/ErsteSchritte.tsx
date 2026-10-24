@@ -8,7 +8,7 @@ import { zeilenText } from '../lib/fundstelle';
 import { PRODUKT } from '../produkt';
 import { kiHinweis } from '../lib/kennzeichnung';
 import { Icon } from '../ui/Icon';
-import { Feld, Fehlerhinweis, Hinweis, Knopf, Laedt } from '../ui/teile';
+import { Feld, Fehlerhinweis, Knopf, Laedt } from '../ui/teile';
 
 // Der 5-Minuten-Weg: eigene KI anbinden oder ersten Kontext hochladen, dann die erste Frage mit Beleg.
 // Jeder Schritt lässt sich überspringen; nichts davon ist endgültig.
@@ -16,7 +16,7 @@ import { Feld, Fehlerhinweis, Hinweis, Knopf, Laedt } from '../ui/teile';
 /** Wege nach CONTRACT v1.4 4.1. „hd_test“ nur, wenn der Server es anbietet ([S-1]). */
 const WEGE: { id: KiWeg; titel: string; unter: string }[] = [
   { id: 'hd_test', titel: 'Test-KI von HD', unter: 'Sofort los, ohne eigenes Konto. EU-Modell, läuft über Heidrich Digital als Unterauftragsverarbeiter. Nur in der Testphase.' },
-  { id: 'eigener_schluessel', titel: 'Eigener Anbieter', unter: 'Mistral, IONOS, STACKIT, Scaleway mit eurem Schlüssel, oder ein lokales Modell. EU zuerst.' },
+  { id: 'eigener_schluessel', titel: 'Eigener Anbieter', unter: 'Mistral, IONOS, STACKIT, Scaleway, Anthropic, OpenAI oder Google mit eurem Schlüssel, oder ein lokales Modell.' },
   { id: 'app', titel: 'Über deine KI-App', unter: 'Claude, ChatGPT oder Le Chat verbinden sich per MCP und arbeiten mit eurem Wissen.' },
   { id: 'ohne', titel: 'Erst ohne KI', unter: 'Antworten sind wörtliche Auszüge mit Fundstelle. Jederzeit umstellbar.' },
 ];
@@ -160,11 +160,7 @@ function KiSchritt({ e, ein, weiter }: { e: Einstellungen; ein: Einrichtung; wei
               <option key={m} value={m} />
             ))}
           </datalist>
-          {v?.region === 'usa' && (
-            <Hinweis art="warnung" icon="warnung" titel="Anbieter außerhalb der EU">
-              <p>Fragen und gefundene Abschnitte gehen an Server in den USA. Klärt vorher den Vertrag zur Auftragsverarbeitung.</p>
-            </Hinweis>
-          )}
+          {v?.datenfluss && <p class="klein-text datenfluss">{v.datenfluss}</p>}
         </>
       )}
 

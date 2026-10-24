@@ -71,8 +71,11 @@ describe('H2: KI-Endpunkt und Schlüsselvariable', () => {
     expect(j.anbieterListe.map((x: { id: string }) => x.id)).toContain('mistral');
     // Konfiguration nach Neustart: URL aus der Liste, Schlüssel aus der Listenvariable
     const y = YAML.parse(fs.readFileSync(path.join(u.dir, 'kern.yaml'), 'utf8'));
-    y.provider.url = 'https://boese.example/v1'; // von Hand eingeschleust
-    y.provider.apiKeyEnv = 'KERN_PROVIDER_KEY_MISTRAL';
+    // v1.4: der Anbieter steht jetzt unter `ki:` (mit status/vorher), älter unter `provider:`
+    const block = y.ki ?? y.provider;
+    expect(block.status).toBe('ungeprueft');
+    block.url = 'https://boese.example/v1'; // von Hand eingeschleust
+    block.apiKeyEnv = 'KERN_PROVIDER_KEY_MISTRAL';
     fs.writeFileSync(path.join(u.dir, 'kern.yaml'), YAML.stringify(y));
     const neu = ladeKonfiguration({ dataDir: u.dir, env: { KERN_SECRET: SECRET, KERN_MODUS: 'managed', KERN_PROVIDER_KEY_MISTRAL: 'hd-schluessel' } });
     const p = neu.kern.provider as { art: string; url: string; apiKey: string };

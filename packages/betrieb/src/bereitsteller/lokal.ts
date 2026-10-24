@@ -10,7 +10,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import type { Auftrag, Bereitsteller, Modus, Wechselauftrag } from './typ.js';
+import type { Auftrag, Bereitsteller, DemoZugang, Modus, SchrittErgebnis, Wechselauftrag } from './typ.js';
 import { STANDARD_SCHRITTE, WECHSEL_SCHRITTE } from './typ.js';
 import type { Beispiel } from '../typen.js';
 
@@ -47,7 +47,7 @@ export class LokalBereitsteller implements Bereitsteller {
     return path.join(this.basis, id);
   }
 
-  async schritt(name: string, a: Auftrag) {
+  async schritt(name: string, a: Auftrag): Promise<SchrittErgebnis> {
     const o = this.ordner(a.id);
     const daten = path.join(o, 'daten');
     switch (name) {
@@ -83,8 +83,8 @@ export class LokalBereitsteller implements Bereitsteller {
         return { meldung: a.admin_mail ? 'Einladung vorgemerkt (lokal kein Mailversand)' : 'keine Mail angegeben' };
       case 'beispiel_laden':
         if (!a.beispiel) return { meldung: 'übersprungen' };
-        await this.beispiel(a.id, 'laden', a.beispiel);
-        return { meldung: `Beispiel ${a.beispiel} geladen` };
+        const z = await this.ladeBeispiel(a.id, a.beispiel);
+        return { meldung: `Beispiel ${a.beispiel} geladen (${z.length} Demo-Zugänge, Passwörter zufällig)`, demo_zugaenge: z };
       default:
         return {};
     }
@@ -128,35 +128,47 @@ export class LokalBereitsteller implements Bereitsteller {
   }
 
   async beispiel(id: string, aktion: 'laden' | 'entfernen', satz: Beispiel | null) {
+    if (aktion === 'laden') { await this.ladeBeispiel(id, satz); return; }
+    await this.entferneBeispiel(id);
+  }
+
+  private async entferneBeispiel(id: string) {
     const daten = path.join(this.ordner(id), 'daten');
     const core = await import('@kern/core');
-    if (aktion === 'entfernen') {
-      // Beispieldaten entfernen = Datenordner leeren und neu anlegen (Demo hat keine Kundendaten).
-      await fsp.rm(daten, { recursive: true, force: true });
-      await fsp.mkdir(daten, { recursive: true });
-      const k = await core.Kern.open({ dataDir: daten, provider: { art: 'mock' }, betrieb: 'neu', sprache: 'de' });
-      await k.schliesse();
-      return;
-    }
+    // Beispieldaten entfernen = Datenordner leeren und neu anlegen (Demo hat keine Kundendaten).
+    await fsp.rm(daten, { recursive: true, force: true });
+    await fsp.mkdir(daten, { recursive: true });
+    const k = await core.Kern.open({ dataDir: daten, provider: { art: 'mock' }, betrieb: 'neu', sprache: 'de' });
+    await k.schliesse();
+  }
+
+  /** Lädt die Beispielsammlung. Passwörter der Demo-Zugänge sind zufällig (S1 N2) und kommen nur hier zurück. */
+  async ladeBeispiel(id: string, satz: Beispiel | null): Promise<DemoZugang[]> {
+    const daten = path.join(this.ordner(id), 'daten');
+    const core = await import('@kern/core');
     if (satz === 'tischlerei-wendt') {
-      await core.seedDemo(daten, { provider: { art: 'mock' } });
-      return;
+      const r = (await core.seedDemo(daten, { provider: { art: 'mock' } })) as { benutzer?: { name: string; passwort: string; rollen: string[] }[] };
+      return (r.benutzer ?? []).filter((b) => b.passwort).map((b) => ({ name: b.name, passwort: b.passwort, rollen: [...b.rollen] }));
     }
+    const neu: DemoZugang[] = [];
     if (satz === 'kanzlei-behrens') {
       await fsp.cp(beispielOrdner(satz), daten, { recursive: true, force: false, errorOnExist: false });
       const k = await core.Kern.open({ dataDir: daten, provider: { art: 'mock' }, betrieb: 'Kanzlei Behrens (Beispiel)', sprache: 'de' });
       try {
         const vorhanden = await k.benutzer.liste();
-        if (!vorhanden.some((u) => u.name === 'Dr. Wiebke Behrens')) {
-          await k.benutzer.anlegen('Dr. Wiebke Behrens', 'demo-passwort', ['admin'], ['kanzlei']);
-          await k.benutzer.anlegen('Ole Thormählen', 'demo-passwort', ['freigeber'], ['kanzlei']);
-          await k.benutzer.anlegen('Merle Paulsen', 'demo-passwort', ['autor'], ['sekretariat']);
+        const plan: [string, ('admin' | 'freigeber' | 'autor')[], string[]][] = [['Dr. Wiebke Behrens', ['admin'], ['kanzlei']], ['Ole Thormählen', ['freigeber'], ['kanzlei']], ['Merle Paulsen', ['autor'], ['sekretariat']]];
+        for (const [name, rollen, teams] of plan) {
+          if (vorhanden.some((u) => u.name === name)) continue;
+          const pw = crypto.randomBytes(12).toString('base64url'); // S1 N2: keine festen Demo-Passwörter
+          await k.benutzer.anlegen(name, pw, rollen, teams);
+          neu.push({ name, passwort: pw, rollen });
         }
         await k.uebernimmAenderungen('Dr. Wiebke Behrens', 'Beispielkanzlei Behrens angelegt');
       } finally {
         await k.schliesse();
       }
     }
+    return neu;
   }
 
   /** Prüfsumme über alle Dateien (Pfad + Inhalt, sortiert), ohne den wegwerfbaren Index. */

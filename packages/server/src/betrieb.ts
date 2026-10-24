@@ -7,6 +7,9 @@ import type { ServerConfig } from './config.js';
 import type { KernLike, User } from './types.js';
 import type { ZugangLike } from './zugang.js';
 import type { Sicherheitsprotokoll } from './protokoll.js';
+import type { Exporte } from './export.js';
+import { leseVerbrauch } from './kontingent.js';
+import { statusAusFehler } from './fehler.js';
 
 /**
  * v1.4 3.2 und 3.4: Betriebs-Endpunkte der Instanz für den Leitstand.
@@ -99,6 +102,8 @@ export interface BetriebOptionen {
   socketIp: (c: Context) => string | undefined;
   protokoll: Sicherheitsprotokoll;
   version?: string;
+  /** 7.1: Export über den Leitstand (Link geht nur an Admins der Instanz). */
+  exporte?: Exporte;
 }
 
 const BETRIEBSKONTO: User = { id: 'betrieb', name: 'betrieb', rollen: ['admin'], teams: [] };
@@ -107,13 +112,13 @@ export function betriebsRouten(app: Hono, o: BetriebOptionen): void {
   const { kern, config, zustand, zugang } = o;
   app.use('/_betrieb/*', async (c, next) => {
     const nichtDa = () => c.json({ fehler: 'Nicht gefunden.' }, 404);
-    if (!config.betriebToken) return nichtDa();
+    if (!config.betriebTokenHash) return nichtDa();
     if (!istInternesNetz(o.socketIp(c)) || c.req.header('x-forwarded-for') || c.req.header('forwarded')) {
       o.protokoll.schreibe({ ereignis: 'betrieb_zugriff_abgelehnt', benutzer: null, ergebnis: 'abgelehnt' });
       return nichtDa();
     }
     const m = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '');
-    const soll = crypto.createHash('sha256').update(config.betriebToken).digest();
+    const soll = Buffer.from(config.betriebTokenHash, 'hex');
     const ist = crypto.createHash('sha256').update(m?.[1] ?? '').digest();
     if (!m || !crypto.timingSafeEqual(soll, ist)) {
       o.protokoll.schreibe({ ereignis: 'betrieb_zugriff_abgelehnt', benutzer: null, ergebnis: 'abgelehnt' });
@@ -140,6 +145,7 @@ export function betriebsRouten(app: Hono, o: BetriebOptionen): void {
 
   app.get('/_betrieb/status', async (c) => {
     const nutzer = (await kern.benutzer.liste()).length;
+    const v = await leseVerbrauch(kern);
     return c.json({
       ok: true,
       version: o.version ?? '0.1.0',
@@ -150,7 +156,9 @@ export function betriebsRouten(app: Hono, o: BetriebOptionen): void {
       speicher_bytes: zustand.speicherBytes(),
       zugaenge_oauth: await zaehleOauth(),
       ki_art: config.kern.provider.art,
-      ki_verbrauch_cent_monat: null, // Verbrauchszähler kommt aus core (3.4), noch nicht vorhanden
+      // 3.4: aus core `verbrauch()` (Tagessummen ohne Personen); null, solange core keinen Zähler hat.
+      ki_verbrauch_cent_monat: v ? v.cent_monat : null,
+      ki_verbrauch_cent_heute: v ? v.cent_heute : null,
       ki_kontingent_cent_monat: zustand.grenzen.ki_kontingent_cent_monat,
       grenzen: zustand.grenzen,
     });
@@ -197,6 +205,67 @@ export function betriebsRouten(app: Hono, o: BetriebOptionen): void {
     return c.json({ ok: true, quellen: zustand.zaehleMd('quellen') });
   });
 
-  app.post('/_betrieb/export', (c) => c.json({ fehler: 'Export über den Leitstand kommt mit core-Export (v1.4 7.1).' }, 501));
+  // 7.1: Der Leitstand löst denselben Export aus wie POST /api/export. Antwort ohne Link und ohne Dateinamen;
+  // den Link sehen nur Admins der Instanz (GET /api/export), Grundsatz 0.1.
+  app.post('/_betrieb/export', async (c) => {
+    if (!o.exporte) return c.json({ fehler: 'Export nicht verfügbar.' }, 501);
+    const b = await json(c, z.object({ art: z.enum(['okf', 'zip', 'umzugspaket']), passphrase: z.string().min(12).max(500).optional(), warten: z.boolean().default(true) }).strict());
+    const admin = (await kern.benutzer.liste()).find((u) => u.rollen.includes('admin'));
+    if (!admin) return c.json({ fehler: 'Kein Admin angelegt.' }, 409);
+    // Stufenwechsel (O1 1.8.4): Der Leitstand braucht für das Ziel eine Passphrase. Gibt er keine mit, erzeugt die
+    // Instanz eine und gibt sie genau in dieser Antwort zurück (nirgends gespeichert). Der Leitstand hält ohnehin die
+    // Sicherungsschlüssel der Instanz; ein neuer Zugriff auf Inhalte entsteht dadurch nicht.
+    const erzeugt = b.art === 'umzugspaket' && !b.passphrase ? crypto.randomBytes(24).toString('base64url') : null;
+    try {
+      const a = o.exporte.starte(kern, { ...admin, rollen: ['admin'] }, b.art, { passphrase: b.passphrase ?? erzeugt ?? undefined, von: 'betrieb' });
+      o.protokoll.schreibe({ ereignis: 'export', benutzer: 'betrieb', ergebnis: 'ok', ziel: `${b.art}:${a.id}` });
+      if (!b.warten) return c.json({ id: a.id, art: a.art, status: a.status, ...(erzeugt ? { passphrase: erzeugt } : {}) }, 202);
+      // P2-Client erwartet bytes und sha256 in der Antwort: bis zu 120 s warten, sonst 202 mit id.
+      const f = (await o.exporte.warte(a.id, 120_000)) ?? a;
+      if (f.status === 'fehler') return c.json({ id: f.id, art: f.art, status: f.status, fehler: f.fehler }, 500);
+      return c.json({
+        id: f.id, art: f.art, status: f.status, bytes: f.bytes ?? null, sha256: f.sha256 ?? null, bereit_bis: f.bereit_bis,
+        datei: f.status === 'fertig' ? o.exporte.pfad(f) : null, ...(erzeugt ? { passphrase: erzeugt } : {}),
+      }, f.status === 'fertig' ? 200 : 202);
+    } catch (e) {
+      const sf = statusAusFehler(e);
+      return c.json({ fehler: sf.meldung }, sf.status as 400);
+    }
+  });
+  app.get('/_betrieb/export/:id', (c) => {
+    const a = o.exporte?.hole(c.req.param('id'));
+    if (!a || a.von !== 'betrieb') return c.json({ fehler: 'Nicht gefunden.' }, 404);
+    return c.json({ id: a.id, art: a.art, status: a.status, bytes: a.bytes ?? null, sha256: a.sha256 ?? null, bereit_bis: a.bereit_bis });
+  });
+  // Stufenwechsel am Ziel (O1 1.8.4): Prüfbericht nach dem Import beim Start (KERN_IMPORT_PAKET, siehe index.ts).
+  // Nur Wahrheitswerte und Zahlen, keine Pfade oder Abweichungstexte (Grundsatz 0.1).
+  const berichtDatei = path.join(config.dataDir, '.kern', 'pruefbericht.json');
+  const berichtAnsicht = () => {
+    let roh: Buffer;
+    try { roh = fs.readFileSync(berichtDatei); } catch { return null; }
+    const b = JSON.parse(roh.toString('utf8')) as Record<string, unknown>;
+    const pb = b.pruefbank as { gleich?: boolean } | null | undefined;
+    return {
+      format: b.format, am: b.am, manifest_sha256: b.manifest_sha256, pruefsummen_ok: b.pruefsummen_ok, git_fsck_ok: b.git_fsck_ok,
+      head_gleich: b.head_gleich, index_neu: b.index_neu, pruefen_befunde_neu: b.pruefen_befunde_neu,
+      pruefbank_gleich: pb ? pb.gleich ?? null : null, bestanden: b.bestanden,
+      // Bestätigung im Leitstand: POST /v1/instanzen/:id/umzug/bestaetigen { pruefbericht_sha256 } (7.3)
+      pruefbericht_sha256: crypto.createHash('sha256').update(roh).digest('hex'),
+    };
+  };
+  app.get('/_betrieb/pruefbericht', (c) => {
+    const b = berichtAnsicht();
+    return b ? c.json(b) : c.json({ fehler: 'Kein Prüfbericht (kein Umzug in diese Instanz).' }, 404);
+  });
+  app.post('/_betrieb/pruefbericht', async (c) => {
+    const k = kern as KernLike & { umzugPruefen?: (u: User) => Promise<unknown> };
+    if (typeof k.umzugPruefen !== 'function') return c.json({ fehler: 'Diese core-Version prüft keinen Umzug.' }, 501);
+    if (!fs.existsSync(path.join(config.dataDir, '.kern', 'umzug-manifest.json'))) return c.json({ fehler: 'Kein Umzug in diese Instanz.' }, 404);
+    const admin = (await kern.benutzer.liste()).find((u) => u.rollen.includes('admin'));
+    if (!admin) return c.json({ fehler: 'Kein Admin angelegt.' }, 409);
+    try { await k.umzugPruefen({ ...admin, rollen: ['admin'] }); } catch (e) { const sf = statusAusFehler(e); return c.json({ fehler: sf.meldung }, sf.status as 400); }
+    return c.json(berichtAnsicht());
+  });
+
   app.all('/_betrieb/*', (c) => c.json({ fehler: 'Nicht gefunden.' }, 404));
 }

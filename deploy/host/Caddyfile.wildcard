@@ -1,0 +1,40 @@
+# Alternative zu On-Demand-TLS: ein Wildcard-Zertifikat *.<managed-domain> über die DNS-01-Prüfung.
+# Vorteil: kein Zertifikatsabruf beim ersten Aufruf einer neuen Instanz (spart einige Sekunden im 5-Minuten-Weg),
+# keine Ratenlimits je Subdomain, Subdomains erscheinen nicht einzeln in den öffentlichen CT-Logs.
+# Nachteil: Caddy braucht einen API-Schlüssel der DNS-Zone (ein Geheimnis mehr auf dem Host) und ein eigenes
+# Caddy-Image mit DNS-Modul. Für Hetzner DNS:
+#   xcaddy build --with github.com/caddy-dns/hetzner   (oder Dockerfile mit caddy:builder)
+# NICHT in der Sandbox geprüft (kein DNS-Modul im Standard-Image, keine öffentliche Zone).
+{
+	http_port 8080
+	https_port 8443
+	email {$ACME_MAIL}
+	admin off
+	log {
+		level WARN
+	}
+}
+
+*.{$KERN_MANAGED_DOMAIN}:8443 {
+	tls {
+		dns hetzner {env.HETZNER_DNS_API_TOKEN}
+	}
+	encode zstd gzip
+	@betrieb path /_betrieb/*
+	respond @betrieb 404
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy inst-{http.request.host.labels.{$KERN_SUBDOMAIN_LABEL:2}}:7480 {
+		header_up X-Forwarded-Proto https
+		header_up -X-Forwarded-For
+		header_up X-Forwarded-For {remote_host}
+	}
+	handle_errors {
+		respond "Diese Adresse gibt es nicht oder sie ist gerade nicht erreichbar." 502
+	}
+}
+
+http://*.{$KERN_MANAGED_DOMAIN}:8080 {
+	redir https://{host}{uri} 308
+}

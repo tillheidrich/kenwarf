@@ -6,6 +6,7 @@ import YAML from 'yaml';
 import type { KernConfig, ProviderConfig } from './types.js';
 import { ERLAUBTE_KEY_ENV, ladeAnbieterListe, type Anbieter } from './anbieter.js';
 import { Geheimnisse } from './geheimnisse.js';
+import { proxyAusUmgebung, type ProxyEinstellung } from './egress.js';
 
 export interface ServerConfig {
   port: number;
@@ -34,11 +35,23 @@ export interface ServerConfig {
   oauthIssuer: string | null;
   /** Betriebs-Token für /_betrieb/* (nur intern; öffnet keine /api- oder /mcp-Route). */
   betriebToken: string | null;
+  /** SHA-256 (hex) des Betriebs-Tokens; aus KERN_BETRIEB_TOKEN_SHA256 (bevorzugt, kein Klartext in der Umgebung) oder aus KERN_BETRIEB_TOKEN. */
+  betriebTokenHash: string | null;
+  /** Kanal ".ki" des Egress-Proxys (KERN_KI_PROXY): nur Erlaubnisliste, für KI-Abrufe. */
+  kiProxy: ProxyEinstellung | null;
   leitstandUrl: string | null;
   kontoToken: string | null;
   /** Schlüssel für .kern/geheimnisse.json (AES-256-GCM), nur aus der Umgebung. */
   geheimnisSchluessel: string | null;
   produktName: string;
+  /** v1.4 3.7: Egress-Proxy aus HTTPS_PROXY/HTTP_PROXY/NO_PROXY (null = direkt). */
+  proxy: ProxyEinstellung | null;
+  /** [S-1] Test-KI von HD freigeschaltet (KERN_TEST_KI=1 und Listeneintrag `hd_test`). */
+  testKi: boolean;
+  /** 4.1: Berufsgeheimnisträger (KERN_BERUFSGEHEIMNIS=1 oder kern.yaml berufsgeheimnis: true); Test-KI immer aus. */
+  berufsgeheimnis: boolean;
+  /** Umgebung, aus der die Konfiguration stammt (für bauProvider bei Laufzeitwechsel des Anbieters). */
+  umgebung: NodeJS.ProcessEnv;
   webDist: string;
   fake: boolean;
   sitzungStunden: number;
@@ -251,9 +264,16 @@ export function ladeKonfiguration(opt: { dataDir?: string; port?: number; env?: 
     logInhalte: ja(env.KERN_LOG_INHALTE, false),
     oauthIssuer: str(env.KERN_OAUTH_ISSUER) ?? null,
     betriebToken: str(env.KERN_BETRIEB_TOKEN) && env.KERN_BETRIEB_TOKEN!.length >= 32 ? env.KERN_BETRIEB_TOKEN! : null,
+    betriebTokenHash: /^[a-f0-9]{64}$/i.test(env.KERN_BETRIEB_TOKEN_SHA256 ?? '') ? env.KERN_BETRIEB_TOKEN_SHA256!.toLowerCase()
+      : str(env.KERN_BETRIEB_TOKEN) && env.KERN_BETRIEB_TOKEN!.length >= 32 ? crypto.createHash('sha256').update(env.KERN_BETRIEB_TOKEN!).digest('hex') : null,
+    kiProxy: str(env.KERN_KI_PROXY) ? { httpProxy: env.KERN_KI_PROXY, httpsProxy: env.KERN_KI_PROXY, noProxy: env.NO_PROXY ?? env.no_proxy ?? '' } : null,
     leitstandUrl: str(env.KERN_LEITSTAND_URL)?.replace(/\/+$/, '') ?? null,
     kontoToken: str(env.KERN_KONTO_TOKEN) ?? null,
     geheimnisSchluessel: str(env.KERN_GEHEIMNIS_SCHLUESSEL) ?? null,
+    proxy: proxyAusUmgebung(env),
+    umgebung: env,
+    testKi: modus === 'managed' && ja(env.KERN_TEST_KI, false) && anbieter.some((a) => a.id === 'hd_test'),
+    berufsgeheimnis: ja(env.KERN_BERUFSGEHEIMNIS, false) || y.berufsgeheimnis === true,
     produktName: str((y.produkt as { name?: string } | undefined)?.name) ?? str(env.KERN_PRODUKT_NAME) ?? 'Kern',
     webDist: path.resolve(env.KERN_WEB_DIST ?? path.join(hier, '..', '..', 'web', 'dist')),
     fake,

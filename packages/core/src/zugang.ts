@@ -11,8 +11,9 @@ import type { User } from './types.js';
 import { KernFehler } from './types.js';
 
 export type TokenArt = 'sitzung' | 'api' | 'mcp' | 'oauth_zugriff' | 'oauth_erneuerung';
-export type Scope = 'kern:lesen' | 'kern:fragen' | 'kern:vorschlagen' | 'kern:bericht' | 'kern:verwalten';
-export const ALLE_SCOPES: readonly Scope[] = ['kern:lesen', 'kern:fragen', 'kern:vorschlagen', 'kern:bericht', 'kern:verwalten'];
+export type Scope = 'kern:lesen' | 'kern:fragen' | 'kern:vorschlagen' | 'kern:bericht' | 'kern:verwalten' | 'kern:freigeben';
+export const ALLE_SCOPES: readonly Scope[] = ['kern:lesen', 'kern:fragen', 'kern:vorschlagen', 'kern:bericht', 'kern:verwalten', 'kern:freigeben'];
+const istFreigeber = (u: User) => u.rollen.some((r) => r === 'freigeber' || r === 'admin');
 export const TOKEN_ARTEN: readonly TokenArt[] = ['sitzung', 'api', 'mcp', 'oauth_zugriff', 'oauth_erneuerung'];
 
 export interface TokenEintrag {
@@ -52,6 +53,7 @@ export interface ErzeugeEingabe {
 }
 export interface Erwartung { art?: TokenArt | TokenArt[]; scope?: Scope; zielgruppe?: string }
 export interface OAuthClient { clientId: string; name: string; redirectUris: string[]; erstellt: string; art: 'dcr' | 'cimd'; zuletzt: string | null }
+export interface ZugangExport { format: 'kern-zugang/1'; erstellt: string; tokens: (TokenEintrag & { hash: string })[]; clients: OAuthClient[] }
 export interface TokenPaar { zugriff: { token: string; eintrag: TokenEintrag }; erneuerung: { token: string; eintrag: TokenEintrag } }
 
 export const STANDARD_SEK: Record<TokenArt, number> = {
@@ -67,7 +69,7 @@ const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 const istAdmin = (u: User) => u.rollen.includes('admin');
 const istAutor = (u: User) => u.rollen.some((r) => r === 'autor' || r === 'freigeber' || r === 'admin');
 /** v1.4 6.3: Mindestrolle je Scope. */
-export const scopeErlaubt = (u: User, s: Scope): boolean => s === 'kern:verwalten' ? istAdmin(u) : s === 'kern:vorschlagen' || s === 'kern:bericht' ? istAutor(u) : true;
+export const scopeErlaubt = (u: User, s: Scope): boolean => s === 'kern:freigeben' ? false : s === 'kern:verwalten' ? istAdmin(u) : s === 'kern:vorschlagen' || s === 'kern:bericht' ? istAutor(u) : true;
 
 interface Zeile {
   id: string; hash: string; user_id: string; art: TokenArt; bezeichnung: string; geraet: string | null; scopes: string;
@@ -119,6 +121,7 @@ export class Zugangsspeicher {
   private pruefeScopes(fuer: User, scopes: Scope[]): Scope[] {
     if (!Array.isArray(scopes) || scopes.some((s) => !ALLE_SCOPES.includes(s))) throw new KernFehler('ungueltig', `Unbekannter Scope (erlaubt: ${ALLE_SCOPES.join(', ')})`);
     if (scopes.includes('kern:verwalten') && !istAdmin(fuer)) throw new KernFehler('keine_rechte', 'Scope kern:verwalten nur für Admins');
+    if (scopes.includes('kern:freigeben') && !istFreigeber(fuer)) throw new KernFehler('keine_rechte', 'Scope kern:freigeben nur für Freigeber und Admins (v1.4.2)');
     if ((scopes.includes('kern:vorschlagen') || scopes.includes('kern:bericht')) && !istAutor(fuer)) throw new KernFehler('keine_rechte', 'Vorschlagen und Berichten brauchen mindestens die Rolle autor');
     return [...new Set(scopes)];
   }
@@ -131,6 +134,7 @@ export class Zugangsspeicher {
     if (!aktuell) throw new KernFehler('nicht_gefunden', 'Benutzer unbekannt');
     const std: Scope[] = e.art === 'sitzung' ? ALLE_SCOPES.filter((s) => scopeErlaubt(aktuell, s)) : ['kern:lesen', 'kern:fragen'];
     const scopes = this.pruefeScopes(aktuell, e.scopes ?? std);
+    if (scopes.includes('kern:freigeben') && (e.agent || e.art === 'oauth_zugriff' || e.art === 'oauth_erneuerung')) throw new KernFehler('keine_rechte', 'kern:freigeben nie für Agenten oder OAuth (v1.4.2)');
     let sek = e.gueltigSek === undefined ? STANDARD_SEK[e.art] : e.gueltigSek;
     if (sek === null || typeof sek !== 'number' || !Number.isFinite(sek) || sek <= 0) throw new KernFehler('ungueltig', 'Jeder Zugang braucht einen Ablauf (gueltigSek > 0)');
     if (sek > ZUGANG_MAX_SEK) throw new KernFehler('ungueltig', 'Zugänge gelten höchstens 365 Tage');
@@ -289,6 +293,7 @@ export class Zugangsspeicher {
     if (!cl || !cl.redirectUris.includes(c.redirectUri)) throw new KernFehler('ungueltig', 'Client oder redirect_uri unbekannt');
     if (!/^[A-Za-z0-9_-]{43}$/.test(c.codeChallenge)) throw new KernFehler('ungueltig', 'code_challenge (S256, base64url) fehlt');
     if (c.scopes.includes('kern:verwalten')) throw new KernFehler('ungueltig', 'kern:verwalten gibt es nie über OAuth');
+    if (c.scopes.includes('kern:freigeben')) throw new KernFehler('ungueltig', 'kern:freigeben gibt es nie über OAuth');
     const scopes = this.pruefeScopes(this.holeUser(fuer.id) ?? fuer, c.scopes);
     this.clientBenutzt(c.clientId);
     const code = randomBytes(32).toString('base64url');
@@ -362,6 +367,45 @@ export class Zugangsspeicher {
       erstellt, Number.isNaN(ab.getTime()) ? this.iso(90 * 86400) : ab.toISOString(), zuletzt,
     );
     return true;
+  }
+
+  /**
+   * v1.4 7.2: Zugänge für das Umzugspaket: nur `api` und `mcp` (gültig, nicht widerrufen, mit Hash) und OAuth-Clients.
+   * Keine Sitzungen, keine OAuth-Zugriffs- oder Erneuerungs-Tokens, keine Codes.
+   */
+  exportiere(): ZugangExport {
+    const jetzt = this.iso();
+    const tokens = (this.db.prepare("SELECT * FROM tokens WHERE art IN ('api', 'mcp') AND widerrufen IS NULL AND (laeuft_ab IS NULL OR laeuft_ab >= ?) ORDER BY erstellt").all(jetzt) as Zeile[])
+      .map((z) => ({ ...alsEintrag(z), hash: z.hash }));
+    const clients = (this.db.prepare('SELECT client_id FROM clients ORDER BY erstellt').all() as { client_id: string }[]).map((c) => this.holeClient(c.client_id)!);
+    return { format: 'kern-zugang/1', erstellt: jetzt, tokens, clients };
+  }
+
+  /** Gegenstück zu `exportiere()`; vorhandene Hashes und Clients bleiben unverändert. Gibt die Zahl übernommener Einträge zurück. */
+  importiere(e: ZugangExport): { tokens: number; clients: number } {
+    if (!e || e.format !== 'kern-zugang/1' || !Array.isArray(e.tokens) || !Array.isArray(e.clients)) throw new KernFehler('ungueltig', 'Kein Zugangs-Export (kern-zugang/1)');
+    let t = 0;
+    let c = 0;
+    const tx = this.db.transaction(() => {
+      for (const x of e.tokens) {
+        if (!/^[0-9a-f]{64}$/.test(x.hash) || (x.art !== 'api' && x.art !== 'mcp')) continue;
+        if (this.db.prepare('SELECT 1 FROM tokens WHERE hash = ? OR id = ?').get(x.hash, x.id)) continue;
+        const scopes = (x.scopes ?? []).filter((s) => ALLE_SCOPES.includes(s));
+        this.db.prepare(`INSERT INTO tokens (id, hash, user_id, art, bezeichnung, geraet, scopes, erstellt, laeuft_ab, zuletzt, widerrufen, client_id, zielgruppe, familie, agent, reichweite)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?)`).run(
+          x.id, x.hash, x.userId, x.art, String(x.bezeichnung ?? x.art).slice(0, 80), x.geraet ?? null, JSON.stringify(scopes), x.erstellt,
+          x.laeuftAb ?? this.iso(STANDARD_SEK.mcp), x.zuletzt ?? null, x.clientId ?? null, x.zielgruppe ?? null, x.agent ?? null, x.reichweite ?? null,
+        );
+        t++;
+      }
+      for (const k of e.clients) {
+        if (!k?.clientId || this.holeClient(k.clientId)) continue;
+        this.db.prepare('INSERT INTO clients (client_id, name, redirect_uris, erstellt, art, zuletzt) VALUES (?, ?, ?, ?, ?, ?)').run(k.clientId, k.name, JSON.stringify(k.redirectUris ?? []), k.erstellt, k.art ?? 'dcr', k.zuletzt ?? null);
+        c++;
+      }
+    });
+    tx();
+    return { tokens: t, clients: c };
   }
 
   schliessen(): void {

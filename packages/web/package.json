@@ -2,6 +2,7 @@
   "name": "@kern/web",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "description": "Weboberfläche für Kern: Fragen, Wissen, Dokumente, Hinzufügen, Eingang, Briefing, Einstellungen",
   "scripts": {
@@ -25,6 +26,5 @@
   "dependencies": {
     "marked": "^16.4.2",
     "preact": "^10.29.8"
-  },
-  "license": "AGPL-3.0-only"
+  }
 }

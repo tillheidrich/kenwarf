@@ -10,7 +10,7 @@ describe('prosemirrorZuMarkdown', () => {
       type: 'doc',
       content: [
         { type: 'heading', attrs: { level: 2 }, content: [t('Palette')] },
-        p(t('Kobalt', [{ type: 'strong' }]), t(' ist '), t('#2055b3', [{ type: 'code_inline' }]), t(', siehe '), t('Logo', [{ type: 'link', attrs: { href: '/doc/logo-rHFg9XVVVU' } }])),
+        p(t('Kobalt', [{ type: 'strong' }]), t(' ist '), t('#2055b3', [{ type: 'code_inline' }]), t(', siehe '), t('Logo', [{ type: 'link', attrs: { href: '/doc/logo-Lo00000004' } }])),
         { type: 'bullet_list', content: [{ type: 'list_item', content: [p(t('eins'))] }, { type: 'list_item', content: [p(t('zwei')), { type: 'bullet_list', content: [{ type: 'list_item', content: [p(t('zwei-a'))] }] }] }] },
         { type: 'ordered_list', attrs: { order: 3 }, content: [{ type: 'list_item', content: [p(t('drei'))] }] },
         { type: 'checkbox_list', content: [{ type: 'checkbox_item', attrs: { checked: true }, content: [p(t('erledigt'))] }, { type: 'checkbox_item', attrs: { checked: false }, content: [p(t('offen'))] }] },
@@ -36,7 +36,7 @@ describe('prosemirrorZuMarkdown', () => {
     expect(md).toBe(
       [
         '## Palette',
-        '**Kobalt** ist `#2055b3`, siehe [Logo](/doc/logo-rHFg9XVVVU)',
+        '**Kobalt** ist `#2055b3`, siehe [Logo](/doc/logo-Lo00000004)',
         '* eins\n* zwei\n  * zwei-a',
         '3. drei',
         '- [x] erledigt\n- [ ] offen',

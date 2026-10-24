@@ -2,6 +2,7 @@
  * Beispielbetrieb „Tischlerei Wendt GmbH“ (erfunden, Musterhude). Alle Namen, Zahlen und Lieferanten sind ausgedacht.
  * Inhalte stammen aus dem Wissensordner-Vorführstück von Heidrich Digital (block2b), umgebaut auf das Kern-Datenformat.
  */
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -11,7 +12,7 @@ import type { KernConfig, ProviderConfig, Rolle, User } from '../types.js';
 
 export const DEMO_PASSWORT = 'demo-passwort';
 
-/** Demo-Zugänge (nur für Vorführungen; Passwort für alle: `demo-passwort`). */
+/** Demo-Zugänge. S1 N2: Passwörter zufällig (`seedDemo` gibt sie einmal zurück); `DEMO_PASSWORT` nur für Tests über `opt.passwort`. */
 export const DEMO_BENUTZER: { name: string; rollen: Rolle[]; teams: string[]; rolle: string }[] = [
   { name: 'Jörn Wendt', rollen: ['admin'], teams: ['buero', 'werkstatt'], rolle: 'Inhaber' },
   { name: 'Sabine Kröger', rollen: ['freigeber'], teams: ['buero'], rolle: 'Büro' },
@@ -30,7 +31,7 @@ export function seedInhaltOrdner(): string {
  */
 export async function seedDemo(
   dataDir: string,
-  opt: { provider?: ProviderConfig; heute?: () => Date; produktname?: string; vektoren?: boolean } = {},
+  opt: { provider?: ProviderConfig; heute?: () => Date; produktname?: string; vektoren?: boolean; /** S1 N2: Standard zufällig je Benutzer; festes Passwort nur für Tests. */ passwort?: string } = {},
 ): Promise<{ dataDir: string; benutzer: { name: string; passwort: string; rollen: Rolle[]; teams: string[] }[]; artikel: number; quellen: number; vorschlaege: number }> {
   const cfg: KernConfig = {
     dataDir,
@@ -47,8 +48,13 @@ export async function seedDemo(
   try {
     const vorhanden = await kern.benutzer.liste();
     const benutzer: User[] = [];
+    const passwoerter = new Map<string, string>();
     for (const b of DEMO_BENUTZER) {
-      benutzer.push(vorhanden.find((x) => x.name === b.name) ?? (await kern.benutzer.anlegen(b.name, DEMO_PASSWORT, b.rollen, b.teams)));
+      const alt = vorhanden.find((x) => x.name === b.name);
+      if (alt) { benutzer.push(alt); continue; }
+      const pw = opt.passwort ?? randomBytes(12).toString('base64url');
+      passwoerter.set(b.name, pw);
+      benutzer.push(await kern.benutzer.anlegen(b.name, pw, b.rollen, b.teams));
     }
     let vorschlaege = 0;
     if (leer) {
@@ -62,7 +68,8 @@ export async function seedDemo(
     const admin = benutzer[0]!;
     return {
       dataDir,
-      benutzer: DEMO_BENUTZER.map((b) => ({ name: b.name, passwort: DEMO_PASSWORT, rollen: b.rollen, teams: b.teams })),
+      // Passwort nur für neu angelegte Benutzer, einmalig zurückgegeben (nirgends gespeichert)
+      benutzer: DEMO_BENUTZER.map((b) => ({ name: b.name, passwort: passwoerter.get(b.name) ?? '', rollen: b.rollen, teams: b.teams })),
       artikel: (await kern.listeWissen(admin)).length,
       quellen: (await kern.listeQuellen(admin)).length,
       vorschlaege,

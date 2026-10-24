@@ -170,8 +170,9 @@ describe('Stufenwechsel nachts (3.6) und aus dem Konto', () => {
     expect(l.instanz(instanz.id).stufe).toBe('eigen');
     expect(l.geplanteWechsel()).toHaveLength(0);
   });
-  it('Mollie-Kunde: Hochstufen aus dem Konto erst nach bezahltem Aufschlag', async () => {
+  it('Mollie-Kunde ohne gültiges Mandat: Hochstufen aus dem Konto per Checkout, erst nach bezahltem Aufschlag', async () => {
     const { l, m } = aufbau();
+    m.mandateListe.set('cst_2', []); // P2: mit Mandat läuft die anteilige Zahlung ohne Checkout (test/mollie-abo.test.ts)
     m.zahlungen.set('tr_b0000001', { id: 'tr_b0000001', status: 'paid', amount: { value: '29.00', currency: 'EUR' }, sequenceType: 'first', customerId: 'cst_2', createdAt: '2026-10-01T08:00:00Z', metadata: { kunde: { firma: 'Kfz Behn', name: 'Y', mail: 'y@behn.example' }, paket: 'klein' } });
     await l.mollieWebhook('tr_b0000001');
     const iid = l.instanzen()[0]!.id;

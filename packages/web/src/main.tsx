@@ -10,17 +10,22 @@ import { App } from './app';
 import { Anmelden } from './seiten/Anmelden';
 import { AppAnbieter } from './kontext';
 import { PasswortNeu } from './seiten/PasswortNeu';
-import { PRODUKT } from './produkt';
+import { PRODUKT, setzeProduktName } from './produkt';
 
 function Wurzel() {
   const [ich, setIch] = useState<User | null | undefined>(undefined);
   const [startFehler, setStartFehler] = useState<string | null>(null);
+  // Einmal-Passwort aus der Anmeldung eben, nur im Speicher, damit es beim Pflichtwechsel nicht noch einmal getippt werden muss
+  const [einmal, setEinmal] = useState<string | undefined>(undefined);
 
   const pruefe = useCallback(() => {
     setStartFehler(null);
     starteApi()
       .then((a) => a.ich())
-      .then(setIch, (e: unknown) => setStartFehler(e instanceof Error ? e.message : 'Server nicht erreichbar'));
+      .then((u) => {
+        setzeProduktName(u?.produkt?.name);
+        setIch(u);
+      }, (e: unknown) => setStartFehler(e instanceof Error ? e.message : 'Server nicht erreichbar'));
   }, []);
 
   useEffect(() => {
@@ -62,8 +67,8 @@ function Wurzel() {
         <span class="sr-only">{PRODUKT} wird geladen …</span>
       </div>
     );
-  if (!ich) return <Anmelden angemeldet={setIch} />;
-  if (ich.mussPasswortAendern) return <PasswortNeu ich={ich} fertig={() => setIch({ ...ich, mussPasswortAendern: false })} abmelden={abmelden} />;
+  if (!ich) return <Anmelden angemeldet={(u, pw) => { setzeProduktName(u.produkt?.name); setEinmal(u.mussPasswortAendern ? pw : undefined); setIch(u); }} />;
+  if (ich.mussPasswortAendern) return <PasswortNeu ich={ich} bisher={einmal} fertig={() => { setEinmal(undefined); setIch({ ...ich, mussPasswortAendern: false }); }} abmelden={abmelden} />;
   return (
     <AppAnbieter ich={ich} abmelden={abmelden}>
       <App />

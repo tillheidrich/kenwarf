@@ -1,0 +1,50 @@
+# Geteilter Host: Caddy vor allen Instanzen (O1 6.1, CONTRACT v1.4 3.7).
+# On-Demand-TLS: ein Zertifikat wird erst beim ersten Aufruf geholt, und nur, wenn der Ask-Dienst die Subdomain
+# kennt (kern-egress :3130 liest die Instanzliste des Hosts; alternativ KERN_TLS_ASK auf den Leitstand zeigen lassen).
+# Damit braucht es nur einen Wildcard-DNS-Eintrag *.<managed-domain> und keinen DNS-API-Zugang.
+# Wildcard-Zertifikat statt On-Demand: siehe Caddyfile.wildcard.
+{
+	{$KERN_CADDY_GLOBAL}
+	http_port 8080
+	https_port 8443
+	email {$ACME_MAIL}
+	admin off
+	on_demand_tls {
+		ask {$KERN_TLS_ASK:http://10.230.0.3:3130/tls-ask}
+	}
+	# Keine Zugriffsprotokolle (Pfade, Suchbegriffe), nur Warnungen
+	log {
+		level WARN
+	}
+	servers {
+		protocols h1 h2
+	}
+}
+
+*.{$KERN_MANAGED_DOMAIN}:8443 {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	@betrieb path /_betrieb/*
+	respond @betrieb 404
+	request_body {
+		max_size 110MB
+	}
+	header {
+		-Server
+	}
+	# Ziel: Netzwerk-Alias inst-<subdomain> im Instanznetz (kern-host setzt ihn). Label-Nummer von rechts gezählt.
+	reverse_proxy inst-{http.request.host.labels.{$KERN_SUBDOMAIN_LABEL:2}}:7480 {
+		header_up X-Forwarded-Proto https
+		header_up -X-Forwarded-For
+		header_up X-Forwarded-For {remote_host}
+	}
+	handle_errors {
+		respond "Diese Adresse gibt es nicht oder sie ist gerade nicht erreichbar." 502
+	}
+}
+
+http://*.{$KERN_MANAGED_DOMAIN}:8080 {
+	redir https://{host}{uri} 308
+}

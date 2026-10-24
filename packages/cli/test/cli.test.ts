@@ -88,6 +88,23 @@ describe('kern CLI gegen Temp-Ordner (Attrappe)', () => {
     expect((await kern('token', 'widerrufen', id)).code).toBe(1);
   });
 
+  it('token anlegen --agent: Profil passt zur Rolle, Scopes fest (v1.4 8.4)', async () => {
+    const f = await kern('token', 'anlegen', 'lisa', '--agent', 'Claude', '--profil', 'autor');
+    expect(f.code).toBe(1);
+    expect(f.err).toContain('nur leser');
+    expect((await kern('token', 'anlegen', 'lisa', '--profil', 'leser')).code).toBe(1);
+    const t = await kern('token', 'anlegen', 'max', '--agent', 'Claude', '--profil', 'autor', '--reichweite', 'team');
+    expect(t.code, t.err).toBe(0);
+    expect(t.err).toContain('kern:vorschlagen');
+  });
+
+  it('sammelfreigabe: Leser abgewiesen, ohne Filter abgewiesen (v1.4.1 U10)', async () => {
+    const l = await kern('--als', 'lisa', 'sammelfreigabe', '--grund', 'Import');
+    expect(l.code).toBe(1);
+    expect(l.err).toContain('freigeber');
+    expect((await kern('sammelfreigabe')).code).toBe(1);
+  });
+
   it('reindex', async () => {
     const r = await kern('reindex');
     expect(r.out).toMatch(/Index neu gebaut: \d+ Dateien/);
@@ -200,6 +217,27 @@ describe.skipIf(!coreGebaut)('P2: Beispieldaten nur mit Flag, Zufallspasswörter
     expect(await k.benutzer.pruefe('Jörn Wendt', pw)).toBeTruthy();
     await k.schliesse?.();
   }, 60000);
+
+  const cliGebaut = fs.existsSync(path.join(__dirname, '..', 'dist', 'cli.js'));
+  it.skipIf(!cliGebaut)('einstieg.sh mit KERN_DEMO=1 schreibt die Zufallspasswörter einmal ins Log, beim zweiten Start nicht mehr', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const ziel = path.join(tmp, 'demo-einstieg');
+    const skript = path.join(__dirname, '..', '..', '..', 'deploy', 'scripts', 'einstieg.sh');
+    const env = { PATH: process.env.PATH ?? '', KERN_DATA: ziel, KERN_DEMO: '1', KERN_CLI: `node ${path.join(__dirname, '..', 'dist', 'cli.js')}` };
+    const r1 = spawnSync('sh', [skript, '--version'], { env, encoding: 'utf8' });
+    expect(r1.status, r1.stderr).toBe(0);
+    expect(r1.stdout).toContain('DEMO-ZUGÄNGE');
+    const zeile = r1.stdout.split('\n').find((z) => z.includes('Jörn Wendt'))!;
+    const pw = zeile.trim().split('\t')[2]!;
+    expect(pw.length).toBeGreaterThanOrEqual(16);
+    const core = (await import('@kern/core' as string)) as { Kern: { open(c: object): Promise<{ benutzer: { pruefe(n: string, p: string): Promise<unknown> }; schliesse?(): Promise<void> }> } };
+    const k = await core.Kern.open({ dataDir: ziel, provider: { art: 'mock' }, betrieb: 'x', sprache: 'de' });
+    expect(await k.benutzer.pruefe('Jörn Wendt', pw)).toBeTruthy();
+    await k.schliesse?.();
+    const r2 = spawnSync('sh', [skript, '--version'], { env, encoding: 'utf8' });
+    expect(r2.status, r2.stderr).toBe(0);
+    expect(r2.stdout).not.toContain('DEMO-ZUGÄNGE');
+  }, 90000);
 });
 
 describe.skipIf(!coreGebaut)('v1.4 7.2: kern umzug packen, auspacken, pruefen (echtes core)', () => {

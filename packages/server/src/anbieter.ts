@@ -28,6 +28,11 @@ export const ERLAUBTE_KEY_ENV = /^KERN_PROVIDER_KEY(_[A-Z0-9]{1,32})?$/;
 export const STANDARD_ANBIETER: Anbieter[] = [
   { id: 'mistral', name: 'Mistral AI (EU)', art: 'openai', url: 'https://api.mistral.ai/v1', chatModell: 'mistral-small-latest', embedModell: 'mistral-embed', apiKeyEnv: 'KERN_PROVIDER_KEY_MISTRAL', region: 'EU' },
   { id: 'ionos', name: 'IONOS AI Model Hub (DE)', art: 'openai', url: 'https://openai.inference.de-txl.ionos.com/v1', chatModell: 'meta-llama/Llama-3.3-70B-Instruct', embedModell: 'BAAI/bge-m3', apiKeyEnv: 'KERN_PROVIDER_KEY_IONOS', region: 'DE' },
+  // Till 07:12: US-Modelle sind gleichwertige Wege, auch im Managed-Betrieb. Schlüssel bringt der Kunde (5.2);
+  // Pflicht ist nur der ehrliche Hinweis zum Datenfluss (Drittland, F12), siehe voreinstellungen.ts.
+  { id: 'anthropic', name: 'Anthropic Claude', art: 'anthropic', url: 'https://api.anthropic.com', chatModell: 'claude-sonnet-4-5', embedModell: 'mock', region: 'USA' },
+  { id: 'openai', name: 'OpenAI (ChatGPT, Codex)', art: 'openai', url: 'https://api.openai.com/v1', chatModell: 'gpt-4.1-mini', embedModell: 'text-embedding-3-small', region: 'USA' },
+  { id: 'google', name: 'Google Gemini', art: 'openai', url: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModell: 'gemini-2.5-flash', embedModell: 'gemini-embedding-001', region: 'USA' },
 ];
 
 function pruefeEintrag(roh: unknown, warnungen: string[]): Anbieter | null {

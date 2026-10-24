@@ -5040,3 +5040,12 @@ textarea.frage-eingabe {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+.quelle-web {
+  margin-left: var(--r2);
+  vertical-align: middle;
+}
+.gestuetzt-hinweis {
+  font-size: 13px;
+  color: var(--bernstein);
+  font-weight: 500;
+}

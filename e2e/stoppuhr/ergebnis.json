@@ -1,0 +1,55 @@
+{
+  "weg": "docker_run",
+  "image": "kern:i1-6f77b00",
+  "version": "0.1.0",
+  "am": "2026-10-24T08:23:12.446Z",
+  "maschinenzeit_sek": 9.5,
+  "klicks": 6,
+  "soll": {
+    "maschinenzeit_sek": 120,
+    "klicks": 15,
+    "grenze_sek": 300
+  },
+  "schritte": [
+    {
+      "schritt": "healthz",
+      "sek": 4.6,
+      "klicks": 0
+    },
+    {
+      "schritt": "eigenes_passwort",
+      "sek": 6.7,
+      "klicks": 2
+    },
+    {
+      "schritt": "angemeldet",
+      "sek": 6.7,
+      "klicks": 2
+    },
+    {
+      "schritt": "einrichtung_offen",
+      "sek": 6.9,
+      "klicks": 2
+    },
+    {
+      "schritt": "ki_schritt_spaeter",
+      "sek": 7.2,
+      "klicks": 3
+    },
+    {
+      "schritt": "unterlagen_hochgeladen",
+      "sek": 9.3,
+      "klicks": 5
+    },
+    {
+      "schritt": "belegte_antwort_sichtbar",
+      "sek": 9.5,
+      "klicks": 6
+    }
+  ],
+  "bestanden": true,
+  "fehlgeschlagen_bei": null,
+  "luecken": [],
+  "zitat_geprueft": true,
+  "ki_erzeugt": true
+}

@@ -17,12 +17,12 @@ export function aufraeumen(): void {
   for (const d of ordner.splice(0)) rmSync(d, { recursive: true, force: true });
 }
 
-export async function neuerKern(dir = tmp()): Promise<{ kern: Kern; dir: string; till: User; leser: User; mira: User }> {
-  const kern = await Kern.open({ dataDir: dir, provider: { art: 'mock' }, betrieb: 'Heidrich Digital (Test)', sprache: 'de', heute: HEUTE } as Parameters<typeof Kern.open>[0]);
+export async function neuerKern(dir = tmp()): Promise<{ kern: Kern; dir: string; till: User; leser: User; mara: User }> {
+  const kern = await Kern.open({ dataDir: dir, provider: { art: 'mock' }, betrieb: 'Musterbetrieb (Test)', sprache: 'de', heute: HEUTE } as Parameters<typeof Kern.open>[0]);
   const till = await kern.benutzer.anlegen('Till', 'geheim-geheim', ['admin'], []);
   const leser = await kern.benutzer.anlegen('Leser', 'geheim-geheim', ['leser'], []);
-  const mira = await kern.benutzer.anlegen('Mira', 'geheim-geheim', ['autor'], ['marke-branding']);
-  return { kern, dir, till, leser, mira };
+  const mara = await kern.benutzer.anlegen('Mara', 'geheim-geheim', ['autor'], ['marke-branding']);
+  return { kern, dir, till, leser, mara };
 }
 
 /** Minimales gültiges PDF mit Textzeilen (wie in core/test/helfer.ts). */
@@ -63,17 +63,17 @@ export function beispielBuendel(): OutlineBuendel {
     art: 'api',
     basisUrl: 'https://wiki.example.de',
     sammlungen: [
-      { id: 's-marke', urlId: 'MarkeAbc01', url: null, name: 'Marke & Branding', beschreibung: null, permission: 'read_write', baum: [{ id: 'd-start', title: 'Start', url: '/doc/start-Start00001', children: [{ id: 'd-farbe', title: 'Farbe', url: '/doc/farbe-Farbe00001', children: [] }] }] },
-      { id: 's-privat', urlId: 'PrivatX001', url: null, name: 'Strategie (privat)', beschreibung: null, permission: null, baum: [{ id: 'd-geheim', title: 'Geheim', url: '/doc/geheim-Geheim0001', children: [] }] },
+      { id: 's-marke', urlId: 'Mk56Ef78Gh', url: null, name: 'Marke & Branding', beschreibung: null, permission: 'read_write', baum: [{ id: 'd-start', title: 'Start', url: '/doc/start-Start00001', children: [{ id: 'd-farbe', title: 'Farbe', url: '/doc/farbe-Farbe00001', children: [] }] }] },
+      { id: 's-privat', urlId: 'Pr90Ij12Kl', url: null, name: 'Strategie (privat)', beschreibung: null, permission: null, baum: [{ id: 'd-geheim', title: 'Geheim', url: '/doc/geheim-Geheim0001', children: [] }] },
     ],
     dokumente: [
-      dok({ schluessel: 'Start00001', id: 'd-start', titel: 'Start', sammlungId: 's-marke', markdown: 'Einstieg. Die Farbe steht in [Farbe](https://wiki.example.de/doc/farbe-Farbe00001). Handbuch: [handbuch.pdf](https://wiki.example.de/api/attachments.redirect?id=a0000001-aaaa-4bbb-8ccc-000000000002)\n\n![Logo](https://wiki.example.de/api/attachments.redirect?id=a0000002-aaaa-4bbb-8ccc-000000000003)\n' }),
+      dok({ schluessel: 'Start00001', id: 'd-start', titel: 'Start', sammlungId: 's-marke', markdown: 'Einstieg. Die Farbe steht in [Farbe](https://wiki.example.de/doc/farbe-Farbe00001). Handbuch: [handbuch.pdf](https://wiki.example.de/api/attachments.redirect?id=11111111-1111-4111-8111-111111111111)\n\n![Logo](https://wiki.example.de/api/attachments.redirect?id=22222222-2222-4222-8222-222222222222)\n' }),
       dok({ schluessel: 'Farbe00001', id: 'd-farbe', titel: 'Farbe', sammlungId: 's-marke', elternId: 'Start00001', markdown: '## Markenfarbe\n\nDie Markenfarbe ist Kobalt #2055b3. Zurück zum [Start](/doc/start-Start00001).\n' }),
       dok({ schluessel: 'Geheim0001', id: 'd-geheim', titel: 'Geheim', sammlungId: 's-privat', markdown: 'Das Jahresziel für die Rücklage beträgt zwölftausend Euro.\n' }),
     ],
     anhaenge: [
-      { id: 'a0000001-aaaa-4bbb-8ccc-000000000002', name: 'handbuch.pdf', contentType: 'application/pdf', groesse: null, exportPfad: null, dokumente: ['Start00001'], lade: async () => minimalPdf(['Das Markenhandbuch hat zwanzig Seiten.']) },
-      { id: 'a0000002-aaaa-4bbb-8ccc-000000000003', name: 'Logo', contentType: null, groesse: null, exportPfad: null, dokumente: ['Start00001'], lade: null },
+      { id: '11111111-1111-4111-8111-111111111111', name: 'handbuch.pdf', contentType: 'application/pdf', groesse: null, exportPfad: null, dokumente: ['Start00001'], lade: async () => minimalPdf(['Das Markenhandbuch hat zwanzig Seiten.']) },
+      { id: '22222222-2222-4222-8222-222222222222', name: 'Logo', contentType: null, groesse: null, exportPfad: null, dokumente: ['Start00001'], lade: null },
     ],
     kommentare: [{ id: 'k1', dokumentId: 'd-start', elternId: null, autor: 'Till Heidrich', erstelltAm: '2026-10-24T02:54:20.294Z', erledigtAm: null, text: 'Bitte das Logo prüfen.' }],
     warnungen: [],

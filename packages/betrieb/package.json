@@ -32,14 +32,19 @@
     "@simplewebauthn/server": "^14.0.3",
     "better-sqlite3": "^13.0.3",
     "hono": "^4.13.13",
+    "nodemailer": "^7.0.13",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
     "@types/better-sqlite3": "*",
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
+    "@types/smtp-server": "^3.5.13",
+    "smtp-server": "^3.21.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "yaml": "^2.9.1"
   }
 }

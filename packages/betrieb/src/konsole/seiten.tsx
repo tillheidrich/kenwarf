@@ -309,7 +309,7 @@ export function NeueInstanzSeite({ l, k, art, kundeId }: { l: Leitstand; k: Seit
   );
 }
 
-export function InstanzSeite({ l, k, i }: { l: Leitstand; k: SeitenKontext; i: Instanz }) {
+export function InstanzSeite({ l, k, i, zugaenge = null }: { l: Leitstand; k: SeitenKontext; i: Instanz; zugaenge?: { name: string; passwort: string; rollen: string[] }[] | null }) {
   const kunde = i.kunde_id ? l.kunde(i.kunde_id) : null;
   const vorgaenge = l.vorgaenge({ instanz_id: i.id });
   const ereignisse = l.ereignisse({ instanz_id: i.id, limit: 30 });
@@ -320,6 +320,14 @@ export function InstanzSeite({ l, k, i }: { l: Leitstand; k: SeitenKontext; i: I
   return (
     <Seite k={k} titel={kunde?.firma ?? `Pitch ${i.subdomain}`} aktion={<StatusMarke s={i.status} />}>
       <p class="mono gedaempft unterzeile">{i.url} · {i.id}</p>
+      {zugaenge && zugaenge.length > 0 && (
+        <section class="karte" aria-label="Demo-Zugänge">
+          <h2>Demo-Zugänge (nur jetzt sichtbar)</h2>
+          <p class="klein">Die Passwörter sind zufällig und werden nirgends gespeichert. Nach dem Neuladen sind sie weg; wer sie braucht, legt den Pitch neu an.</p>
+          <table><thead><tr><th>Name</th><th>Rolle</th><th>Passwort</th></tr></thead>
+            <tbody>{zugaenge.map((z) => <tr><td>{z.name}</td><td>{z.rollen.join(', ')}</td><td class="mono">{z.passwort}</td></tr>)}</tbody></table>
+        </section>
+      )}
       <Gleis i={i} />
 
       <div class="zweispaltig zweispaltig--breit-links">
