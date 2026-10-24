@@ -1,0 +1,45 @@
+# CI für Kern: Build, Tests, Audit der Laufzeit-Abhängigkeiten, Lizenzprüfung, SBOM (CycloneDX).
+# Ohne Secrets, ohne Push, ohne Deploy. Actions auf Commit-SHA gepinnt (S1 M9).
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pruefen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      KERN_TEST_PORT: '4301'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: git-Identität für Tests (core committet in Temp-Ordner)
+        run: git config --global user.name "kern-ci" && git config --global user.email "ci@kern.invalid"
+      - name: Installieren aus dem Lockfile
+        run: npm ci
+      - name: Build (feste Reihenfolge core, server, cli, web, weitere)
+        run: npm run build
+      - name: Tests
+        run: npm test
+      - name: Audit Laufzeit-Abhängigkeiten
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Lizenzen der Laufzeit-Abhängigkeiten
+        run: npm run lizenzen
+      - name: SBOM (CycloneDX)
+        run: npm run --silent sbom > sbom.cdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 30

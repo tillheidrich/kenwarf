@@ -1,0 +1,84 @@
+# Kern (Arbeitstitel) mit Docker Compose.
+#
+# Nur lokal (http://127.0.0.1:7480):        docker compose up -d
+# Mit eigener Domain und TLS (Caddy):        KERN_DOMAIN=wissen.example.de docker compose --profile tls up -d
+# Mit lokalem Modell (Ollama im Verbund):    docker compose --profile ollama up -d
+#
+# Erstzugang steht nach dem ersten Start im Log:  docker compose logs kern | grep ERSTZUGANG
+# Werte aus .env (Vorlage: .env.example).
+
+name: kern
+
+services:
+  kern:
+    image: ${KERN_IMAGE:-kern:latest}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-bookworm-slim}
+    restart: unless-stopped
+    environment:
+      KERN_BETRIEB: ${KERN_BETRIEB:-Mein Betrieb}
+      KERN_ADMIN: ${KERN_ADMIN:-admin}
+      KERN_ADMIN_PASSWORT: ${KERN_ADMIN_PASSWORT:-}
+      KERN_SECRET: ${KERN_SECRET:-}
+      # Hinter Caddy: Cookies nur über HTTPS, Client-IP aus X-Forwarded-For
+      KERN_SECURE_COOKIE: ${KERN_SECURE_COOKIE:-0}
+      KERN_TRUST_PROXY: ${KERN_TRUST_PROXY:-0}
+      # KI-Anbieter (siehe README, Abschnitt KI). Schlüssel nur hier, nie in kern.yaml.
+      KERN_PROVIDER: ${KERN_PROVIDER:-mock}
+      KERN_PROVIDER_URL: ${KERN_PROVIDER_URL:-}
+      KERN_PROVIDER_KEY: ${KERN_PROVIDER_KEY:-}
+      KERN_CHAT_MODELL: ${KERN_CHAT_MODELL:-}
+      KERN_EMBED_MODELL: ${KERN_EMBED_MODELL:-}
+    volumes:
+      - kern-daten:/daten
+    ports:
+      # Standard nur an localhost. Für Zugriff im LAN/VPN: KERN_BIND=0.0.0.0 (dann Firewall beachten).
+      - "${KERN_BIND:-127.0.0.1}:${KERN_PORT:-7480}:7480"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${KERN_MEM:-1g}
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    profiles: ["tls"]
+    image: ${CADDY_IMAGE:-caddy:2}
+    restart: unless-stopped
+    depends_on: [kern]
+    environment:
+      KERN_DOMAIN: ${KERN_DOMAIN:-localhost}   # beim Profil "tls" die echte Domain setzen
+      ACME_MAIL: ${ACME_MAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-daten:/data
+      - caddy-config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+
+  ollama:
+    profiles: ["ollama"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    volumes:
+      - ollama-daten:/root/.ollama
+    # Kein Port nach außen: nur Kern spricht mit Ollama (http://ollama:11434).
+    # Modelle laden: docker compose exec ollama ollama pull qwen3:8b && docker compose exec ollama ollama pull bge-m3
+
+volumes:
+  kern-daten:
+  caddy-daten:
+  caddy-config:
+  ollama-daten:

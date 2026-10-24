@@ -1,0 +1,16 @@
+{
+  "name": "kern",
+  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run build -w @kern/core && npm run build -w @kern/server && npm run build -w @kern/cli && npm run build -w @kern/web && npm run build --if-present -w @kern/import-outline -w @kern/betrieb",
+    "test": "npm test --workspaces --if-present",
+    "audit:laufzeit": "npm audit --omit=dev",
+    "lizenzen": "node .github/scripts/lizenzen.mjs",
+    "sbom": "npm sbom --sbom-format cyclonedx --omit dev --sbom-type application"
+  },
+  "engines": { "node": ">=22" }
+}

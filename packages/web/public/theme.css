@@ -1,0 +1,18 @@
+/*
+  Anpassung je Betrieb. Diese Datei wird nach dem Programmcode geladen und kann
+  beim Betrieb ersetzt werden, ohne die App neu zu bauen.
+
+  Beispiel:
+  :root {
+    --kern-akzent: #2f6b3f;         Hauptfarbe für Knöpfe, Links, Belege
+    --kern-akzent-dunkel: #24542f;  Hover-Zustand der Hauptfarbe
+    --kern-papier: #f7f7f4;         Hintergrund
+    --kern-tinte: #0f1b33;          Schriftfarbe
+    --kern-rotstift: #c4543a;       Warnfarbe (sparsam)
+    --kern-schrift-ui: 'Outfit';
+    --kern-schrift-text: 'Source Serif 4';
+    --kern-schrift-mono: 'IBM Plex Mono';
+    --kern-logo: url('logo.svg');   eigenes Logo, ersetzt das Zeichen oben links
+    --kern-logo-grund: transparent; Hintergrund hinter dem Logo
+  }
+*/

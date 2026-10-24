@@ -1,0 +1,30 @@
+{
+  "name": "@kern/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Weboberfläche für Kern: Fragen, Wissen, Dokumente, Hinzufügen, Eingang, Briefing, Einstellungen",
+  "scripts": {
+    "dev": "vite --port 4302 --strictPort",
+    "dev:mock": "VITE_KERN_MOCK=1 vite --port 4302 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "build:mock": "tsc --noEmit && VITE_KERN_MOCK=1 vite build --outDir dist-mock",
+    "preview:mock": "vite preview --port 4302 --strictPort --outDir dist-mock",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.56.0",
+    "@preact/preset-vite": "^2.10.6",
+    "jsdom": "^29.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "marked": "^16.4.2",
+    "preact": "^10.29.8"
+  },
+  "license": "AGPL-3.0-only"
+}

@@ -1,0 +1,486 @@
+openapi: 3.1.0
+info:
+  title: Kern REST-API
+  version: 0.1.0
+  description: |
+    REST-API von Kern (CONTRACT v1.1). Alle Pfade unter `/api` brauchen eine Sitzung
+    (Cookie aus `POST /api/login`), außer `/api/login`. Schreibende Anfragen
+    (POST, PUT, DELETE) brauchen zusätzlich den Header `x-kern: 1` (CSRF-Schutz).
+    Fehler kommen als `{ "fehler": "<deutscher Text>" }`.
+    Pfade von Artikeln und Quellen sind relativ zum Datenordner (`wissen/...`, `quellen/...`).
+    In der URL darf der Präfix `wissen/` bzw. `quellen/` fehlen, `.md` ebenso.
+servers:
+  - url: http://127.0.0.1:7480
+components:
+  securitySchemes:
+    sitzung:
+      type: apiKey
+      in: cookie
+      name: kern_sitzung
+      description: Bei KERN_SECURE_COOKIE=1 heißt das Cookie `__Host-kern_sitzung`.
+    csrf:
+      type: apiKey
+      in: header
+      name: x-kern
+    mcpToken:
+      type: http
+      scheme: bearer
+      description: Token je Benutzer (`kern token anlegen <name>` oder `POST /api/benutzer/{id}/tokens`).
+  parameters:
+    pfad:
+      name: pfad
+      in: path
+      required: true
+      schema: { type: string }
+      description: Relativer Pfad, segmentweise URL-kodiert. "..", versteckte Segmente und kodierte Schrägstriche ergeben 404.
+  responses:
+    Fehler:
+      description: Fehler
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Fehler' }
+  schemas:
+    Fehler:
+      type: object
+      required: [fehler]
+      properties: { fehler: { type: string } }
+    Rolle: { type: string, enum: [leser, autor, freigeber, admin] }
+    Sichtbarkeit: { type: string, pattern: '^(ich|betrieb|team:.+)$' }
+    User:
+      type: object
+      required: [id, name, rollen, teams]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        rollen: { type: array, items: { $ref: '#/components/schemas/Rolle' } }
+        teams: { type: array, items: { type: string } }
+    Fundstelle:
+      type: object
+      required: [quelle, abschnitt, zeilen, zitat]
+      properties:
+        quelle: { type: string }
+        abschnitt: { type: string }
+        zeilen: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }
+        zitat: { type: string }
+    Artikel:
+      type: object
+      required: [pfad, kopf, text]
+      properties:
+        pfad: { type: string, example: wissen/betrieb/urlaub.md }
+        kopf: { type: object, additionalProperties: true, description: 'Artikelkopf laut CONTRACT (titel, gruppe, kurzfassung, stand, verantwortlich, pruefen_bis, sichtbarkeit, besitzer, fundstellen, status, type, fakten …)' }
+        text: { type: string }
+    Quelle:
+      type: object
+      required: [pfad, kopf, text]
+      properties:
+        pfad: { type: string, example: quellen/2026/handbuch.md }
+        kopf: { type: object, additionalProperties: true }
+        text: { type: string }
+    Treffer:
+      type: object
+      properties:
+        pfad: { type: string }
+        art: { type: string, enum: [wissen, quelle] }
+        titel: { type: string }
+        abschnitt: { type: string }
+        zeilen: { type: array, items: { type: integer } }
+        ausschnitt: { type: string }
+        score: { type: number }
+    Antwort:
+      type: object
+      required: [status, punkte, belege, hinweis]
+      properties:
+        status: { type: string, enum: [beantwortet, steht_nicht_drin, gehoert_nicht_hierher] }
+        punkte:
+          type: array
+          items:
+            type: object
+            properties:
+              text: { type: string }
+              belege: { type: array, items: { type: integer }, description: Indizes in `belege` }
+        belege: { type: array, items: { $ref: '#/components/schemas/Fundstelle' } }
+        hinweis: { type: string }
+    Vorschlag:
+      type: object
+      properties:
+        id: { type: string }
+        art: { type: string, enum: [neu, aenderung, loeschung] }
+        ziel: { type: string }
+        alt: { type: [string, 'null'] }
+        neu: { type: string }
+        grund: { type: string }
+        von: { type: string }
+        erstellt: { type: string, format: date-time }
+        status: { type: string, enum: [offen, freigegeben, abgelehnt, konflikt] }
+        basis_hash: { type: [string, 'null'], description: 'v1.2: Hash der Zieldatei beim Erstellen' }
+        entscheidung:
+          type: object
+          properties: { von: { type: string }, am: { type: string }, begruendung: { type: string } }
+    Fakt:
+      type: object
+      properties:
+        id: { type: string }
+        art: { type: string, enum: [preis, frist, zustaendigkeit, kennzahl, kontakt, regel] }
+        gegenstand: { type: string }
+        wert: { oneOf: [{ type: string }, { type: number }, { type: boolean }] }
+        einheit: { type: [string, 'null'] }
+        gilt_ab: { type: [string, 'null'] }
+        gilt_bis: { type: [string, 'null'] }
+        ersetzt: { type: [string, 'null'] }
+        fundstelle: { type: string }
+        artikel: { type: string }
+        artikelTitel: { type: string }
+        gueltig: { type: boolean }
+        beleg: { oneOf: [{ $ref: '#/components/schemas/Fundstelle' }, { type: 'null' }] }
+    Befund:
+      type: object
+      properties:
+        art: { type: string, enum: [widerspruch, fakt_abgelaufen, fakt_laeuft_ab, pruefung_faellig, fundstelle_kaputt, zu_gross, verwaist, kopf_fehlerhaft, index_veraltet] }
+        pfad: { type: string }
+        text: { type: string }
+        vorschlag: { type: string }
+    Verlauf:
+      type: object
+      properties: { commit: { type: string }, von: { type: string }, am: { type: string }, grund: { type: string } }
+security:
+  - sitzung: []
+paths:
+  /healthz:
+    get:
+      summary: Zustand (ohne Login)
+      security: []
+      responses:
+        '200':
+          description: läuft
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean }, version: { type: string }, fake: { type: boolean }, provider: { type: string } }
+  /api/login:
+    post:
+      summary: Anmelden
+      security: [{ csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, passwort]
+              properties: { name: { type: string }, passwort: { type: string } }
+      responses:
+        '200':
+          description: angemeldet, setzt Cookie (HttpOnly, SameSite=Strict, Secure per Env)
+          content: { application/json: { schema: { type: object, properties: { benutzer: { $ref: '#/components/schemas/User' } } } } }
+        '401': { $ref: '#/components/responses/Fehler' }
+        '403': { description: x-kern fehlt }
+        '429': { description: 'Zu viele Fehlversuche (5 je Name und IP in 15 Minuten, 30 je IP). Header Retry-After.' }
+  /api/logout:
+    post:
+      summary: Abmelden, Sitzung wird serverseitig beendet
+      security: [{ sitzung: [], csrf: [] }]
+      responses: { '200': { description: ok } }
+  /api/ich:
+    get:
+      summary: Angemeldeter Benutzer, Betrieb, Rechte, Hinweis auf Testmodus
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  benutzer: { $ref: '#/components/schemas/User' }
+                  betrieb: { type: string }
+                  sprache: { type: string }
+                  provider: { type: string }
+                  hinweis: { type: [string, 'null'] }
+                  darf: { type: object, properties: { hinzufuegen: { type: boolean }, vorschlagen: { type: boolean }, entscheiden: { type: boolean }, verwalten: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Fehler' }
+  /api/wissen:
+    get:
+      summary: Artikel auflisten (nur sichtbare)
+      parameters: [{ name: gruppe, in: query, schema: { type: string } }]
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Artikel' } } } } } }
+  /api/wissen/{pfad}:
+    get:
+      summary: Artikel lesen
+      parameters: [{ $ref: '#/components/parameters/pfad' }]
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/Artikel' } } } }
+        '404': { $ref: '#/components/responses/Fehler' }
+  /api/wissen/{pfad}/verlauf:
+    get:
+      summary: git-Verlauf eines Artikels
+      parameters: [{ $ref: '#/components/parameters/pfad' }]
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Verlauf' } } } } } }
+  /api/quellen:
+    get:
+      summary: Quellen auflisten
+      parameters: [{ name: sammlung, in: query, schema: { type: string } }]
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Quelle' } } } } } }
+  /api/quellen/{pfad}:
+    get:
+      summary: Quelle lesen
+      parameters: [{ $ref: '#/components/parameters/pfad' }]
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/Quelle' } } } }
+        '404': { $ref: '#/components/responses/Fehler' }
+  /api/quellen/{pfad}/original:
+    get:
+      summary: Originaldatei herunterladen (immer als Anhang, CSP sandbox)
+      parameters: [{ $ref: '#/components/parameters/pfad' }]
+      responses:
+        '200': { description: Datei, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '404': { $ref: '#/components/responses/Fehler' }
+  /api/suche:
+    get:
+      summary: Hybride Suche
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 500 } }
+        - { name: reichweite, in: query, schema: { type: string, enum: [ich, team, betrieb] } }
+        - { name: sammlung, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Treffer' } } } } }
+        '400': { $ref: '#/components/responses/Fehler' }
+  /api/frage:
+    post:
+      summary: Frage mit Belegen beantworten
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [frage]
+              properties:
+                frage: { type: string, maxLength: 2000 }
+                reichweite: { type: string, enum: [ich, team, betrieb] }
+                sammlung: { type: string }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/Antwort' } } } }
+  /api/fakten:
+    get:
+      summary: Faktenschicht abfragen (v1.1)
+      parameters:
+        - { name: art, in: query, schema: { type: string } }
+        - { name: gegenstand, in: query, schema: { type: string } }
+        - { name: gueltig_am, in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Fakt' } } } } }
+        '501': { description: core ohne Faktenschicht }
+  /api/hinzufuegen:
+    post:
+      summary: Quelle hinzufügen (Rolle autor). Erzeugt Quelle und Vorschläge, schreibt nie direkt ins Wissen.
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                datei: { type: string, format: binary }
+                art: { type: string, enum: [datei, text, web, audio, notiz] }
+                titel: { type: string }
+                inhalt: { type: string }
+                url: { type: string, format: uri }
+                sammlung: { type: string, default: allgemein }
+                sichtbarkeit: { $ref: '#/components/schemas/Sichtbarkeit' }
+                beobachten: { type: string, enum: ['true', 'false'] }
+          application/json:
+            schema:
+              type: object
+              properties:
+                art: { type: string, enum: [text, web, notiz] }
+                titel: { type: string }
+                inhalt: { type: string }
+                url: { type: string }
+                sammlung: { type: string }
+                sichtbarkeit: { $ref: '#/components/schemas/Sichtbarkeit' }
+                beobachten: { type: boolean }
+      responses:
+        '201':
+          description: angelegt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quelle: { $ref: '#/components/schemas/Quelle' }
+                  vorschlaege: { type: array, items: { $ref: '#/components/schemas/Vorschlag' } }
+        '403': { $ref: '#/components/responses/Fehler' }
+        '413': { description: 'Datei zu groß (KERN_MAX_UPLOAD_MB, Standard 50)' }
+  /api/eingang:
+    get:
+      summary: Offene Vorschläge (Freigeber alle, sonst eigene)
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Vorschlag' } } } } } }
+  /api/eingang/{id}:
+    post:
+      summary: Vorschlag entscheiden (Rolle freigeber). Freigeben schreibt die Datei und committet.
+      security: [{ sitzung: [], csrf: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,100}$' } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [aktion]
+              properties:
+                aktion: { type: string, enum: [freigeben, ablehnen, aendern] }
+                begruendung: { type: string }
+                neuerText: { type: string, description: Pflicht bei aendern }
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/Vorschlag' } } } }
+        '403': { $ref: '#/components/responses/Fehler' }
+        '404': { $ref: '#/components/responses/Fehler' }
+        '409':
+          description: 'Schon entschieden, oder (v1.2) Konflikt: Zieldatei seit dem Vorschlag geändert. Antwort { fehler, vorschlag } mit status "konflikt" und neuem `alt`; nichts wurde überschrieben. Erneut freigeben übernimmt den Vorschlag gegen den neuen Stand.'
+  /api/vorschlag:
+    post:
+      summary: Vorschlag einreichen (Rolle autor), für Profis und Agenten
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [art, ziel, neu, grund]
+              properties:
+                art: { type: string, enum: [neu, aenderung, loeschung] }
+                ziel: { type: string, description: Pfad unter wissen/ }
+                alt: { type: [string, 'null'] }
+                neu: { type: string }
+                grund: { type: string, minLength: 3 }
+      responses:
+        '201': { description: angelegt, content: { application/json: { schema: { $ref: '#/components/schemas/Vorschlag' } } } }
+        '400': { description: 'Ungültig, z. B. Ziel außerhalb wissen/ oder reservierter Name index.md/log.md (v1.2)' }
+  /api/pruefen:
+    post:
+      summary: Aufräumlauf (v1.1, Rolle freigeber oder admin). Mechanische Vorschläge landen im Eingang.
+      security: [{ sitzung: [], csrf: [] }]
+      responses:
+        '200': { description: Befunde, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Befund' } } } } }
+        '501': { description: core ohne pruefe() }
+  /api/briefing:
+    get:
+      summary: Briefing (höchstens 300 Wörter)
+      parameters: [{ name: seit, in: query, schema: { type: string, format: date } }]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { datum: { type: string }, text: { type: string }, entscheidungen: { type: array, items: { type: string } }, links: { type: array, items: { type: string } } }
+  /api/faellig:
+    get:
+      summary: Artikel mit überschrittenem Prüftermin
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Artikel' } } } } } }
+  /api/einstellungen:
+    get:
+      summary: Einstellungen (API-Schlüssel nie im Klartext)
+      responses: { '200': { description: ok } }
+    put:
+      summary: Einstellungen ändern (admin). Schreibt kern.yaml. API-Schlüssel nur per Umgebungsvariable (apiKeyEnv).
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                betrieb: { type: string }
+                sprache: { type: string, enum: [de, en] }
+                teams: { type: array, items: { type: string } }
+                provider:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    art: { type: string, enum: [mock, ollama, openai, anthropic] }
+                    url: { type: string }
+                    chatModell: { type: string }
+                    embedModell: { type: string }
+                    apiKeyEnv: { type: string, description: Name der Umgebungsvariable mit dem Schlüssel }
+      responses: { '200': { description: ok }, '400': { $ref: '#/components/responses/Fehler' }, '403': { $ref: '#/components/responses/Fehler' } }
+  /api/datenweg:
+    get:
+      summary: 'v1.2 (F13): welcher KI-Anbieter mit welchem Endpunkt aktiv ist und welche Daten dorthin gehen'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anbieter: { type: string }
+                  strecken:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        zweck: { type: string, enum: [antworten, einbetten] }
+                        anbieter: { type: string }
+                        endpunkt: { type: [string, 'null'] }
+                        modell: { type: [string, 'null'] }
+                        ort: { type: string, enum: [dieser Server, lokales Netz, extern] }
+                        region: { type: [string, 'null'] }
+                  daten: { type: array, items: { type: string } }
+                  verlaesstServer: { type: boolean }
+                  hinweis: { type: string }
+  /api/benutzer:
+    get:
+      summary: Benutzer auflisten (admin)
+      responses: { '200': { description: ok, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/User' } } } } } }
+    post:
+      summary: Benutzer anlegen (admin)
+      security: [{ sitzung: [], csrf: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, passwort]
+              properties:
+                name: { type: string }
+                passwort: { type: string, minLength: 10 }
+                rollen: { type: array, items: { $ref: '#/components/schemas/Rolle' }, default: [leser] }
+                teams: { type: array, items: { type: string } }
+      responses: { '201': { description: angelegt }, '409': { description: Name vergeben } }
+  /api/benutzer/{id}/tokens:
+    get:
+      summary: MCP-Tokens eines Benutzers (eigene oder als admin), ohne Geheimnis
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: ok } }
+    post:
+      summary: MCP-Token erzeugen; Klartext nur in dieser Antwort
+      security: [{ sitzung: [], csrf: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { bezeichnung: { type: string } } } } }
+      responses: { '201': { description: '{ token, eintrag, hinweis }' } }
+  /api/benutzer/{id}/tokens/{tid}:
+    delete:
+      summary: Token widerrufen
+      security: [{ sitzung: [], csrf: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: tid, in: path, required: true, schema: { type: string } }
+      responses: { '200': { description: ok }, '404': { description: unbekannt } }
+  /mcp:
+    post:
+      summary: MCP (Streamable HTTP, zustandslos, JSON-Antworten). Werkzeuge kern_suche, kern_lese, kern_frage, kern_fakten, kern_vorschlag, kern_eingang, kern_briefing.
+      security: [{ mcpToken: [] }]
+      responses:
+        '200': { description: JSON-RPC-Antwort }
+        '401': { description: 'Token fehlt oder ungültig (WWW-Authenticate: Bearer)' }

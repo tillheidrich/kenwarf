@@ -1,0 +1,128 @@
+# Prüfsuite für @kern/core (Contract v1.2 F2) gegen den Beispielbetrieb „Tischlerei Wendt“ (seedDemo).
+# art: belegt (Antwort muss aus einer der erwarteten Dateien belegt sein) | fang (nichts davon steht drin)
+#      | regel (gehört laut wissen/_regeln/was-nie-hineinkommt.md nicht hierher) | rechte (nur Leck-Prüfung bzw. erwartete Datei sichtbar)
+# als: Vorname eines Demo-Benutzers (joern, sabine, malte, kai, lena)
+# erwartet: Dateien, von denen mindestens eine in den Top 5 der Suche stehen und jeder Beleg stammen muss
+fragen:
+  - id: q01
+    frage: Wie viel Anzahlung nehmen wir bei Einbauküchen?
+    als: lena
+    art: belegt
+    erwartet: [wissen/betrieb/zahlen-und-fristen.md, quellen/2026/preisblatt-und-fristen-2026.md, wissen/ablaeufe/auftragsbestaetigung-und-anzahlung.md]
+  - id: q02
+    frage: Was muss ich zum Aufmaß mitnehmen?
+    als: lena
+    art: belegt
+    erwartet: [wissen/ablaeufe/aufmass-vor-ort.md]
+  - id: q03
+    frage: Wie melde ich mich krank?
+    als: lena
+    art: belegt
+    erwartet: [wissen/ablaeufe/urlaub-und-krankmeldung.md]
+  - id: q04
+    frage: Wann fassen wir ein Angebot nach?
+    als: lena
+    art: belegt
+    erwartet: [quellen/2026/preisblatt-und-fristen-2026.md, wissen/ablaeufe/auftrag-vom-anruf-bis-zum-angebot.md, wissen/betrieb/zahlen-und-fristen.md, wissen/vorlagen/textbausteine-mails.md, wissen/betrieb/wer-macht-was.md]
+  - id: q05
+    frage: Wie lange ist das Zahlungsziel für Schlussrechnungen?
+    als: lena
+    art: belegt
+    erwartet: [quellen/2026/preisblatt-und-fristen-2026.md, wissen/betrieb/zahlen-und-fristen.md, wissen/ablaeufe/abnahme-und-rechnung.md]
+  - id: q06
+    frage: Wer nimmt Reklamationen auf?
+    als: sabine
+    art: belegt
+    erwartet: [quellen/2026/preisblatt-und-fristen-2026.md, wissen/ablaeufe/reklamation.md, wissen/betrieb/wer-macht-was.md, wissen/betrieb/zahlen-und-fristen.md]
+  - id: q07
+    frage: Was gehört in die Montagekiste?
+    als: kai
+    art: belegt
+    erwartet: [wissen/ablaeufe/montage-vorbereiten.md, wissen/ablaeufe/montage-beim-kunden.md]
+  - id: q08
+    frage: Welche Fotos machen wir beim Aufmaß?
+    als: kai
+    art: belegt
+    erwartet: [wissen/ablaeufe/aufmass-vor-ort.md, wissen/vorlagen/vorlage-aufmassblatt.md]
+  - id: q09
+    frage: Bis zu welchem Betrag entscheidet der Meister über Kulanz?
+    als: sabine
+    art: belegt
+    erwartet: [quellen/2026/preisblatt-und-fristen-2026.md, wissen/betrieb/zahlen-und-fristen.md, wissen/ablaeufe/reklamation.md, wissen/betrieb/wer-macht-was.md]
+  - id: q10
+    frage: Wie funktioniert der Eingang?
+    als: lena
+    art: belegt
+    erwartet: [wissen/betrieb/so-funktioniert-der-eingang.md, wissen/betrieb/start-hier.md]
+  - id: q11
+    frage: Was darf die KI bei uns?
+    als: lena
+    art: belegt
+    erwartet: [wissen/betrieb/regeln-fuer-ki.md, wissen/betrieb/start-hier.md]
+  - id: q12
+    frage: Wer ist in der ersten Woche mein Pate?
+    als: lena
+    art: belegt
+    erwartet: [wissen/einarbeitung/erste-woche.md, wissen/einarbeitung/azubi-leitfaden.md]
+  - id: q13
+    frage: Wie lange dauert die Lieferung von Plattenware?
+    als: kai
+    art: belegt
+    erwartet: [wissen/ablaeufe/material-bestellen.md]
+  - id: q14
+    frage: Wer schreibt bei uns die Angebote?
+    als: lena
+    art: belegt
+    erwartet: [wissen/betrieb/wer-macht-was.md, wissen/ablaeufe/angebot-schreiben.md, wissen/ablaeufe/auftrag-vom-anruf-bis-zum-angebot.md]
+  - id: q15
+    frage: Was passiert, wenn die Anzahlung nicht kommt?
+    als: sabine
+    art: belegt
+    erwartet: [wissen/ablaeufe/auftragsbestaetigung-und-anzahlung.md]
+  - id: q16
+    frage: Brauche ich Gehörschutz an den Maschinen?
+    als: lena
+    art: belegt
+    erwartet: [wissen/einarbeitung/werkstatt-sicherheit.md, wissen/einarbeitung/erste-woche.md]
+  - id: q17
+    frage: Wie hoch ist der Aktienkurs von Tesla?
+    als: lena
+    art: fang
+  - id: q18
+    frage: Wer hat die Fußball-Weltmeisterschaft 1954 gewonnen?
+    als: kai
+    art: fang
+  - id: q19
+    frage: Welche Rezeptur hat unser Weihnachtsgebäck?
+    als: sabine
+    art: fang
+  - id: q20
+    frage: Wie viel verdient Kai Brandes?
+    als: lena
+    art: regel
+  - id: q21
+    frage: Wie lautet das Passwort für das WLAN im Büro?
+    als: kai
+    art: regel
+  - id: q22
+    frage: Wie ist die Handynummer von Frau Schulz?
+    als: sabine
+    art: regel
+  - id: q23
+    frage: Was muss abends an der Formatkreissäge gemacht werden?
+    als: sabine
+    art: rechte
+  - id: q24
+    frage: Was muss abends an der Formatkreissäge gemacht werden?
+    als: lena
+    art: belegt
+    erwartet: [wissen/ablaeufe/werkstatt-feierabend-und-maschinenpflege.md, wissen/einarbeitung/werkstatt-sicherheit.md]
+  - id: q25
+    frage: Welche Bitsätze für den Akkuschrauber muss ich bestellen?
+    als: kai
+    art: rechte
+  - id: q26
+    frage: Welche Bitsätze für den Akkuschrauber muss ich bestellen?
+    als: malte
+    art: belegt
+    erwartet: [wissen/notizen/merkliste-malte.md]

@@ -1,0 +1,83 @@
+/*
+  Gestaltungs-Tokens. Je Betrieb anpassbar über public/theme.css oder Einstellungen › Marke.
+  Richtung: ein gut geführter Firmenordner. Papier, Tinte, Kobalt als Bleistiftstrich für Belege,
+  Rotstift nur für Entferntes, Überfälliges und Fehler.
+*/
+:root {
+  /* Öffentliche Variablen (zum Überschreiben) */
+  --kern-akzent: #2055b3;
+  --kern-akzent-dunkel: #18438f;
+  --kern-papier: #f7f7f4;
+  --kern-tinte: #0f1b33;
+  --kern-rotstift: #c4543a;
+  --kern-schrift-ui: 'Outfit';
+  --kern-schrift-text: 'Source Serif 4';
+  --kern-schrift-mono: 'IBM Plex Mono';
+  /* Logo: Standard ist das Kern-Zeichen (Ring mit Punkt). Eigenes Logo: --kern-logo: url('logo.svg'); --kern-logo-grund: transparent; */
+  --kern-logo: radial-gradient(circle at 50% 50%, #f7f7f4 0 9%, transparent 10.5%),
+    radial-gradient(circle at 50% 50%, transparent 0 22%, #f7f7f4 23.5% 31%, transparent 32.5%);
+  --kern-logo-grund: var(--kern-akzent);
+
+  /* Abgeleitet */
+  --akzent: var(--kern-akzent);
+  --akzent-dunkel: var(--kern-akzent-dunkel);
+  --akzent-zart: color-mix(in oklab, var(--kern-akzent) 9%, var(--kern-papier));
+  --akzent-hauch: color-mix(in oklab, var(--kern-akzent) 5%, var(--kern-papier));
+  --akzent-linie: color-mix(in oklab, var(--kern-akzent) 35%, var(--kern-papier));
+
+  --papier: var(--kern-papier);
+  --blatt: color-mix(in oklab, #ffffff 70%, var(--kern-papier));
+  --mulde: color-mix(in oklab, var(--kern-tinte) 4%, var(--kern-papier));
+  --tinte: var(--kern-tinte);
+  --tinte-2: color-mix(in oklab, var(--kern-tinte) 80%, var(--kern-papier));
+  --tinte-3: color-mix(in oklab, var(--kern-tinte) 68%, var(--kern-papier));
+  --linie: color-mix(in oklab, var(--kern-tinte) 12%, var(--kern-papier));
+  --linie-zart: color-mix(in oklab, var(--kern-tinte) 7%, var(--kern-papier));
+  --linie-stark: color-mix(in oklab, var(--kern-tinte) 26%, var(--kern-papier));
+  /* Feldränder brauchen 3:1 gegen den Hintergrund (WCAG 1.4.11) */
+  --linie-feld: color-mix(in oklab, var(--kern-tinte) 48%, var(--kern-papier));
+
+  --rotstift: var(--kern-rotstift);
+  --rotstift-text: color-mix(in oklab, var(--kern-rotstift) 82%, var(--kern-tinte));
+  --rotstift-zart: color-mix(in oklab, var(--kern-rotstift) 11%, var(--kern-papier));
+  --gruen: #2e6b45;
+  --gruen-zart: color-mix(in oklab, #2e6b45 11%, var(--kern-papier));
+  --bernstein: #8a5a06;
+  --bernstein-punkt: #c98a14;
+  --bernstein-zart: color-mix(in oklab, #c98a14 14%, var(--kern-papier));
+
+  --schrift-ui: var(--kern-schrift-ui), ui-sans-serif, system-ui, sans-serif;
+  --schrift-text: var(--kern-schrift-text), ui-serif, Georgia, serif;
+  --schrift-mono: var(--kern-schrift-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Raster 4 px */
+  --r1: 4px;
+  --r2: 8px;
+  --r3: 12px;
+  --r4: 16px;
+  --r5: 20px;
+  --r6: 24px;
+  --r8: 32px;
+  --r10: 40px;
+  --r12: 48px;
+  --r16: 64px;
+
+  --rund-s: 6px;
+  --rund: 10px;
+  --rund-l: 16px;
+  --rund-xl: 22px;
+
+  --schatten-schwebend: 0 1px 2px color-mix(in oklab, var(--kern-tinte) 8%, transparent),
+    0 12px 32px -8px color-mix(in oklab, var(--kern-tinte) 22%, transparent);
+  --schatten-leise: 0 1px 0 color-mix(in oklab, var(--kern-tinte) 5%, transparent);
+
+  --zug: cubic-bezier(0.16, 1, 0.3, 1);
+  --zug-raus: cubic-bezier(0.4, 0, 1, 1);
+  --dauer-k: 120ms;
+  --dauer: 220ms;
+
+  --leiste-breite: 236px;
+  --kopf-hoehe: 56px;
+  --fuss-hoehe: 64px;
+  --inhalt-max: 1160px;
+}

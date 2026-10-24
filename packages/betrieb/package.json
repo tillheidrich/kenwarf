@@ -1,0 +1,45 @@
+{
+  "name": "@kern/betrieb",
+  "version": "0.1.0",
+  "description": "Kern: Leitstand und Betreiber-Konsole für den Managed-Betrieb (Instanzen, Kunden, Partner, Abrechnungsstatus, Prüfprotokoll)",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "kern-betrieb": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"const f=require('fs');f.cpSync('src/konsole/stil.css','dist/konsole/stil.css');f.cpSync('src/konsole/konsole.js','dist/konsole/konsole.js');f.cpSync('src/konsole/passkey.js','dist/konsole/passkey.js');f.cpSync('src/konsole/fonts','dist/konsole/fonts',{recursive:true})\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "BETRIEB_VORFUEHRUNG=1 tsx src/start.ts",
+    "screenshots": "node e2e/screenshots.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@kern/core": "*",
+    "@simplewebauthn/server": "^14.0.3",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.13.13",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/better-sqlite3": "*",
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

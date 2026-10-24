@@ -1,0 +1,30 @@
+{
+  "name": "@kern/cli",
+  "version": "0.1.0",
+  "description": "Kern: Kommandozeile",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "bin": {
+    "kern": "dist/cli.js"
+  },
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@kern/server": "0.1.0",
+    "commander": "^14.0.3",
+    "yaml": "^2.9.1",
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

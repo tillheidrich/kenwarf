@@ -1,0 +1,21 @@
+# TLS vor Kern. Zertifikat automatisch (Let's Encrypt / ZeroSSL), HTTP/3, HSTS setzt Kern selbst.
+{
+	email {$ACME_MAIL}
+	# Keine Zugriffsprotokolle mit Pfaden oder Suchbegriffen (Logging-Regel, README)
+	log {
+		level WARN
+	}
+}
+
+{$KERN_DOMAIN} {
+	encode zstd gzip
+	# Betriebs-Endpunkte nie nach außen
+	@betrieb path /_betrieb/*
+	respond @betrieb 404
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy kern:7480 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

@@ -1,0 +1,101 @@
+#cloud-config
+# Kern (Arbeitstitel) auf einem eigenen Hetzner-Cloud-Server (Ubuntu 24.04).
+#
+# Nutzung: In der Hetzner Console beim Anlegen des Servers unter „Cloud config“ einfügen,
+# oder: hcloud server create --name wissen --type cx23 --image ubuntu-24.04 --location nbg1 \
+#         --ssh-key <dein-schlüssel> --user-data-from-file hetzner.yaml
+# Vorher die drei Werte im Block "write_files: /opt/kern/deploy/.env" anpassen.
+# DNS: A-Record der Domain auf die Server-IP setzen. Das Zertifikat holt Caddy, sobald der
+# Eintrag auflöst; bis dahin versucht Caddy es selbst in Abständen erneut.
+# Erstzugang danach per SSH: sudo docker compose -f /opt/kern/deploy/docker-compose.yml logs kern | grep ERSTZUGANG
+#
+# Was dieses Skript tut: Updates, Docker aus den Ubuntu-Paketen, Firewall (22, 80, 443),
+# automatische Sicherheitsupdates, SSH nur mit Schlüssel, Kern + Caddy per Compose, tägliches
+# Backup-Skript als Timer (Ziel muss gesetzt werden, sonst nur lokaler Schnappschuss).
+
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+  - ufw
+  - unattended-upgrades
+  - restic
+  - fail2ban
+
+write_files:
+  - path: /opt/kern/deploy/.env
+    permissions: "0600"
+    content: |
+      # ANPASSEN
+      KERN_DOMAIN=wissen.example.de
+      ACME_MAIL=it@example.de
+      KERN_BETRIEB=Mein Betrieb
+      # Image: veröffentlichtes Image (sobald es eines gibt) oder leer lassen = aus dem Quellcode bauen
+      KERN_IMAGE=
+      KERN_REPO=https://github.com/OWNER/kern.git
+      KERN_REF=main
+      KERN_SECURE_COOKIE=1
+      KERN_TRUST_PROXY=1
+      KERN_PROVIDER=mock
+      # Backup außer Haus (optional, empfohlen): restic-Ziel, z. B. Hetzner Storage Box per SFTP
+      # RESTIC_REPOSITORY=sftp:u123456@u123456.your-storagebox.de:/kern
+      # RESTIC_PASSWORD=<lange Zufallszeichenkette, getrennt aufbewahren>
+  - path: /etc/ssh/sshd_config.d/10-kern.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" }, "live-restore": true }
+  - path: /usr/local/sbin/kern-einrichten
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      set -eu
+      cd /opt/kern
+      set -a; . /opt/kern/deploy/.env; set +a
+      if [ -z "${KERN_IMAGE:-}" ]; then
+        if [ ! -d /opt/kern/src/.git ]; then git clone --depth 1 --branch "$KERN_REF" "$KERN_REPO" /opt/kern/src; fi
+        cp -n /opt/kern/src/deploy/docker-compose.yml /opt/kern/src/deploy/Caddyfile /opt/kern/deploy/ 2>/dev/null || true
+        docker build -f /opt/kern/src/deploy/Dockerfile -t kern:lokal /opt/kern/src
+        sed -i 's/^KERN_IMAGE=.*/KERN_IMAGE=kern:lokal/' /opt/kern/deploy/.env
+      fi
+      docker compose --project-directory /opt/kern/deploy -f /opt/kern/deploy/docker-compose.yml --profile tls up -d --no-build
+  - path: /etc/systemd/system/kern-backup.service
+    content: |
+      [Unit]
+      Description=Kern Backup (Datenordner aus dem Volume)
+      [Service]
+      Type=oneshot
+      EnvironmentFile=/opt/kern/deploy/.env
+      ExecStart=/opt/kern/src/deploy/scripts/backup.sh
+  - path: /etc/systemd/system/kern-backup.timer
+    content: |
+      [Unit]
+      Description=Kern Backup täglich
+      [Timer]
+      OnCalendar=*-*-* 02:30:00
+      RandomizedDelaySec=1800
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw allow 443/udp
+  - ufw --force enable
+  - systemctl restart ssh
+  - systemctl enable --now docker fail2ban
+  - /usr/local/sbin/kern-einrichten
+  - systemctl daemon-reload
+  - systemctl enable --now kern-backup.timer

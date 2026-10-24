@@ -1,0 +1,1215 @@
+{
+ "artikel": [
+  {
+   "pfad": "wissen/grundlagen/00-start-hier.md",
+   "kopf": {
+    "titel": "Start hier",
+    "gruppe": "Grundlagen",
+    "kurzfassung": "Das ist unser Wissensordner. Hier steht, wie wir arbeiten: vom ersten Anruf bis zur Rechnung, was in der Werkstatt gilt, wer wofür zuständig ist und wie neue Leute bei uns ankommen.",
+    "stand": "2026-10-21",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-10-21",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/organigramm-und-vertretung.md",
+      "abschnitt": "Start hier",
+      "zeilen": [
+       3,
+       32
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb „Tischlerei Wendt GmbH“ im erfundenen Ort Musterhude. Alle Namen, Zahlen, Lieferanten und Abläufe sind ausgedacht. Erstellt von Heidrich Digital als Vorführstück.\n\nDas ist unser Wissensordner. Hier steht, wie wir arbeiten: vom ersten Anruf bis zur Rechnung, was in der Werkstatt gilt, wer wofür zuständig ist und wie neue Leute bei uns ankommen. Der Ordner liegt auf unserem eigenen Laufwerk im Büro (Ordner `Betrieb/Wissensordner`) und gehört uns. Jede Datei ist eine einfache Textdatei, die man mit jedem Programm öffnen kann, auch in zehn Jahren noch.\n\n## Wo finde ich was?\n\n| Ich will … | Dann lies … |\n|---|---|\n| wissen, wer was macht und wen ich frage | [Wer macht was](01-wer-macht-was.md) |\n| wissen, was ich mit KI machen darf und was nicht | [Regeln für KI](02-regeln-fuer-ki.md) |\n| einen Auftrag vom Anruf bis zur Rechnung durchziehen | [Ablauf Auftrag](ablaeufe/10-auftrag-vom-anruf-bis-zum-angebot.md) und die Seiten 11 bis 17 |\n| eine Reklamation aufnehmen | [Reklamation](ablaeufe/18-reklamation.md) |\n| ein Angebot oder Protokoll schreiben | Ordner [vorlagen](vorlagen/) |\n| neu anfangen oder jemanden einarbeiten | [Erste Woche](einarbeitung/40-erste-woche.md) |\n| etwas Neues aufschreiben oder etwas korrigieren | [So funktioniert der Eingang](eingang/50-so-funktioniert-der-eingang.md) |\n| sehen, was sich zuletzt geändert hat | [Änderungsprotokoll](99-aenderungsprotokoll.md) |\n\n## Drei Regeln für diesen Ordner\n\n1. **Hier steht, wie wir es machen, nicht wie es im Lehrbuch steht.** Wenn wir es anders machen als hier beschrieben, ist entweder die Seite falsch oder wir. Dann sag es Sabine, die Seite wird korrigiert.\n2. **Keine Kundendaten, keine Personalakten, keine Passwörter.** Namen von Kunden, Adressen, Telefonnummern, Krankmeldungen und Zugangsdaten gehören in die Auftragsverwaltung oder in den Personalordner, nie hierher. Genaueres in den [Regeln für KI](02-regeln-fuer-ki.md).\n3. **Niemand ändert direkt.** Neues und Korrekturen gehen in den [Eingang](eingang/50-so-funktioniert-der-eingang.md). Jörn oder Sabine geben frei, dann wird die Seite ergänzt und die Änderung im Protokoll vermerkt.\n\n## Kopf jeder Seite\n\nJede Seite hat oben einen Kopf mit Stand (Datum der letzten Freigabe), wer verantwortlich ist und wer freigegeben hat. Ist der Stand älter als ein Jahr, schaut die verantwortliche Person beim nächsten Quartalsdurchgang drüber.\n\n## KI fragen\n\nWir haben eine KI an diesen Ordner angebunden, die nur lesen darf. Du kannst sie fragen wie einen Kollegen, zum Beispiel „Wie viel Anzahlung nehmen wir bei Einbauküchen?“. Sie antwortet mit dem Satz aus dem Ordner und nennt die Datei, aus der er stammt. Die Antwort ist ein Hinweis, keine Anweisung: Wenn es wichtig ist, mach die genannte Datei auf und lies nach.\n"
+  },
+  {
+   "pfad": "wissen/grundlagen/01-wer-macht-was.md",
+   "kopf": {
+    "titel": "Wer macht was",
+    "gruppe": "Grundlagen",
+    "kurzfassung": "Wir sind 14 Leute: Inhaber, Büro, Meister, sechs Gesellen, ein Monteur, drei Azubis und eine Aushilfe im Lager. Hier steht, wer wofür zuständig ist und wer vertritt.",
+    "stand": "2026-09-02",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": "2027-09-02",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "joern",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/organigramm-und-vertretung.md",
+      "abschnitt": "Wer macht was",
+      "zeilen": [
+       34,
+       61
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen ausgedacht.\n\nWir sind 14 Leute: Inhaber, Büro, Meister, sechs Gesellen, ein Monteur, drei Azubis und eine Aushilfe im Lager. Hier steht, wer wofür zuständig ist und wer vertritt. Telefonnummern stehen im Telefonverzeichnis im Büro, nicht hier.\n\n| Bereich | Zuständig | Vertretung | Was genau |\n|---|---|---|---|\n| Kundenanfragen, Termine Aufmaß | Sabine Kröger (Büro) | Jörn Wendt | Telefon, Mails, Anfrageformular der Website, Terminkalender Aufmaß |\n| Aufmaß und Beratung vor Ort | Malte Ohlsen (Meister) | Jörn Wendt | Aufmaß, Fotos, Beratung, erste Einschätzung Machbarkeit |\n| Angebote | Jörn Wendt | Malte Ohlsen | Kalkulation, Angebot, Nachfassen nach zehn Arbeitstagen |\n| Material und Bestellungen | Malte Ohlsen | Kai Brandes (Geselle) | Plattenware, Beschläge, Glas, Lieferzeiten im Blick |\n| Werkstattplanung | Malte Ohlsen | Kai Brandes | Wochenplan an der Tafel, Maschinenbelegung |\n| Montageplanung | Sabine Kröger | Malte Ohlsen | Termine mit Kunden, Fahrzeuge, Montageliste |\n| Rechnungen, Mahnungen | Sabine Kröger | Jörn Wendt | Abschlags- und Schlussrechnungen, Zahlungseingang |\n| Reklamationen | Malte Ohlsen | Jörn Wendt | Aufnahme, Termin, Entscheidung Kulanz mit Jörn |\n| Ausbildung | Kai Brandes (Ausbilder) | Malte Ohlsen | Berichtsheft, Prüfungsvorbereitung, Ansprechpartner für Azubis |\n| Arbeitssicherheit | Malte Ohlsen | Kai Brandes | Unterweisungen, Erste-Hilfe-Kasten, Absauganlage |\n| Wissensordner | Sabine Kröger | Jörn Wendt | Eingang sichten, Freigaben einholen, Protokoll führen |\n| Website und Google-Profil | Sabine Kröger | Jörn Wendt | Öffnungszeiten, Fotos, Antworten auf Bewertungen |\n\n## Wer entscheidet was?\n\n- **Jörn** entscheidet über Preise, Kulanz über 200 € [Beispielwert], Einstellungen und alles, was Geld bindet.\n- **Malte** entscheidet in der Werkstatt und auf der Baustelle: Reihenfolge, Material, ob eine Montage verschoben wird.\n- **Sabine** entscheidet über Termine und darüber, was im Wissensordner landet (zusammen mit Jörn).\n\n## Wenn niemand erreichbar ist\n\nAuf der Baustelle gilt: erst sichern, dann fotografieren, dann anrufen. Kein Mitarbeiter sagt dem Kunden etwas zu Kosten oder Kulanz zu. Der Satz dafür steht in den [Textbausteinen](vorlagen/33-textbausteine-mails.md).\n"
+  },
+  {
+   "pfad": "wissen/grundlagen/02-regeln-fuer-ki.md",
+   "kopf": {
+    "titel": "Regeln für KI",
+    "gruppe": "Grundlagen",
+    "kurzfassung": "Die KI sucht im Ordner und schreibt Entwürfe. Sie entscheidet nichts und bekommt keine Kundendaten, keine Personalsachen, keine Passwörter und keine Fotos mit Menschen oder Hausnummern. Genutzt wird nur der Firmenzugang mit Vertrag zur Auftragsverarbeitung.",
+    "stand": "2026-10-07",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": "2027-10-07",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "joern",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/hausregel-ki-unterschrieben.md",
+      "abschnitt": "Regeln für KI",
+      "zeilen": [
+       3,
+       32
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb. Diese Hausregel ist ein Muster und keine Rechtsberatung.\n\nWir nutzen KI, um schneller zu finden, was im Ordner steht, und um Texte vorzuschreiben. Die KI entscheidet nichts, schickt nichts raus und bestellt nichts. Diese Seite passt auf eine Seite, damit sie jeder liest.\n\n## Was die KI darf\n\n- Fragen zum Wissensordner beantworten, immer mit Angabe der Datei.\n- Entwürfe schreiben: Angebotstexte aus unseren Vorlagen, Antworten auf Anfragen, Zusammenfassungen von Aufmaß-Notizen ohne Kundennamen.\n- Vorschläge für den Eingang machen: Sie liest eine neue Notiz und schlägt vor, wo sie in den Ordner gehört. Ein Mensch gibt frei.\n\n## Was die KI nicht bekommt\n\n- Namen, Adressen, Telefonnummern und Mails von Kunden.\n- Alles aus der Personalakte, Krankmeldungen, Lohn.\n- Passwörter, Bankdaten, Zugänge.\n- Fotos, auf denen Menschen oder Hausnummern zu erkennen sind.\n\nWenn du unsicher bist, ob etwas hinein darf: Nicht hineingeben, Sabine fragen.\n\n## Welches Werkzeug\n\nWir nutzen nur den KI-Zugang, den die Firma eingerichtet hat (Firmenkonto, Vertrag zur Auftragsverarbeitung liegt im Büro, Server in der EU). Private KI-Konten auf dem eigenen Handy werden für Firmenkram nicht benutzt, auch nicht „nur kurz“.\n\n## Was mit der Antwort passiert\n\nEine Antwort der KI ist ein Entwurf. Du liest sie, bevor sie irgendwo hingeht. Bei Maßen, Preisen und Terminen schaust du in der genannten Datei oder im Auftrag nach. Ein Text, der an einen Kunden geht, wird von dir unterschrieben, nicht von der KI.\n\n## Wenn etwas schiefgeht\n\nHast du versehentlich Kundendaten in die KI gegeben, sag es Jörn am selben Tag. Das ist kein Drama, aber wir müssen es wissen, um zu prüfen, ob wir etwas melden müssen.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/10-auftrag-vom-anruf-bis-zum-angebot.md",
+   "kopf": {
+    "titel": "Ablauf Auftrag, vom Anruf bis zum Angebot",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Das ist der Weg, den jede Anfrage bei uns nimmt. Die Schritte im Einzelnen stehen auf den Seiten 11 bis 13.",
+    "stand": "2026-09-16",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-09-16",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+      "abschnitt": "Ablauf Auftrag, vom Anruf bis zum Angebot",
+      "zeilen": [
+       3,
+       17
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\nDas ist der Weg, den jede Anfrage bei uns nimmt. Die Schritte im Einzelnen stehen auf den Seiten 11 bis 13.\n\n1. **Anfrage annehmen** (Sabine). Egal ob Telefon, Mail oder Formular: Die Anfrage kommt am selben Tag in die Auftragsverwaltung, mit Art der Arbeit (Tür, Treppe, Küche, Einbauschrank, Fenster, Reparatur), Ort und gewünschtem Zeitraum.\n2. **Passt das zu uns?** (Sabine, im Zweifel Jörn). Wir machen keine Fenster unter drei Stück, keine reinen Montagen von Möbeln aus dem Möbelhaus und nichts weiter als 40 km von Musterhude. Passt es nicht, sagt Sabine freundlich ab und nennt, wenn möglich, einen Kollegen. Den Satz dafür gibt es in den [Textbausteinen](../vorlagen/33-textbausteine-mails.md).\n3. **Aufmaßtermin vereinbaren** (Sabine). Innerhalb von zehn Arbeitstagen. Bei Reparaturen reicht oft ein Foto vom Kunden, dann entfällt der Termin.\n4. **Aufmaß vor Ort** (Malte). Siehe [Aufmaß vor Ort](11-aufmass-vor-ort.md).\n5. **Angebot schreiben** (Jörn). Siehe [Angebot schreiben](12-angebot-schreiben.md). Ziel: Angebot spätestens fünf Arbeitstage nach dem Aufmaß beim Kunden.\n6. **Nachfassen** (Jörn). Zehn Arbeitstage nach Versand einmal anrufen. Kein zweites Nachfassen, außer der Kunde bittet darum.\n7. **Auftrag oder Absage** in der Auftragsverwaltung vermerken, bei Absage mit Grund (Preis, Termin, anders entschieden, keine Rückmeldung).\n\n## Warum wir den Absagegrund notieren\n\nEinmal im Quartal schaut Jörn auf die Gründe. Wenn „Termin“ häufiger vorkommt als „Preis“, liegt das Problem in der Werkstattplanung, nicht in der Kalkulation.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/11-aufmass-vor-ort.md",
+   "kopf": {
+    "titel": "Aufmaß vor Ort",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Aufmaßblatt und Fotos am selben Tag in den Auftrag laden. Was der Kunde besonders wichtig fand, als eigene Zeile „Kundenwunsch“ ins Aufmaßblatt, in seinen Worten.",
+    "stand": "2026-08-28",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-08-28",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+      "abschnitt": "Aufmaß vor Ort",
+      "zeilen": [
+       19,
+       39
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Mitnehmen\n\n- Laser-Entfernungsmesser und Zollstock (beides, der Laser lügt an Glas und dunklen Flächen)\n- Wasserwaage 2 m, Winkel, Feuchtemessgerät\n- Tablet mit dem [Aufmaßblatt](../vorlagen/34-vorlage-aufmassblatt.md)\n- Muster: Furnierkarte, Griffmusterbrett, Kantenmuster\n\n## Vor Ort\n\n1. Erst zuhören, dann messen. Was soll das Möbel oder Bauteil können, was stört am alten?\n2. Jedes Maß dreimal: oben, Mitte, unten (bei Breiten) und links, Mitte, rechts (bei Höhen). Das kleinste Maß zählt.\n3. Wände auf Lot und Winkel prüfen. Abweichungen über 5 mm auf 2 m ins Aufmaßblatt schreiben, das ändert die Konstruktion.\n4. Bei Altbau Feuchte messen (Außenwände, Keller). Über 4 % Holzfeuchte am Bestand oder sichtbare Stockflecken: Jörn vor dem Angebot informieren.\n5. Fotos: Gesamtansicht, jede Ecke, Steckdosen und Schalter, Heizkörper, Zugang (Treppenhaus, Türbreiten). **Keine Personen, keine Hausnummern, keine Familienfotos an der Wand im Bild.**\n6. Zugang klären: Parkplatz für den Transporter, Aufzug, enge Treppen. Das entscheidet, ob wir in Teilen liefern.\n\n## Nach dem Termin\n\nAufmaßblatt und Fotos am selben Tag in den Auftrag laden. Was der Kunde besonders wichtig fand, als eigene Zeile „Kundenwunsch“ ins Aufmaßblatt, in seinen Worten.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/12-angebot-schreiben.md",
+   "kopf": {
+    "titel": "Angebot schreiben",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Ein Angebot passt auf zwei Seiten und beschreibt, was der Kunde bekommt. Ab 5.000 € gibt es zwei Ausführungen, die Lieferzeit nennen wir in Kalenderwochen. Preise setzt Jörn von Hand.",
+    "stand": "2026-10-14",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": "2027-10-14",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "joern",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+      "abschnitt": "Angebot schreiben",
+      "zeilen": [
+       41,
+       65
+      ]
+     },
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Angebot schreiben",
+      "zeilen": [
+       114,
+       138
+      ]
+     },
+     {
+      "quelle": "quellen/2026/lieferantenliste-2026-ohne-preise.md",
+      "abschnitt": "Angebot schreiben",
+      "zeilen": [
+       30,
+       54
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Grundsätze\n\n- Ein Angebot passt auf zwei Seiten. Was mehr braucht, kommt als Anlage (Zeichnung, Materialliste).\n- Jede Position beschreibt, was der Kunde bekommt, nicht wie wir es bauen. „Innentür weiß lackiert, Zarge passend zur Wandstärke 12 cm, Drückergarnitur Edelstahl“ statt „Türblatt Röhrenspan 40 mm“.\n- Bei mehr als 5.000 € Auftragswert [Beispielwert] bieten wir zwei Ausführungen an, eine einfachere und die empfohlene. Die Empfehlung ist markiert.\n- Jedes Angebot hat ein „gültig bis“, Standard sind vier Wochen.\n- Lieferzeit nennen wir als Zeitraum in Kalenderwochen, nie als festes Datum, solange das Material nicht bestellt ist.\n\n## Kalkulation\n\nDie Kalkulation liegt in der Tabelle „Kalkulation 2026“ im Büro, nicht hier. Stundensätze und Zuschläge stehen nur dort und werden nicht in den Wissensordner kopiert.\n\n## Vorlage\n\nDie Vorlage für Innentüren liegt unter [Vorlage Angebot Innentür](../vorlagen/30-vorlage-angebot-innentuer.md). Für andere Arbeiten gilt derselbe Aufbau.\n\n## Lieferzeiten Beschläge\n\nFür Beschläge rechnen wir mit zwei bis drei Wochen ab Bestellung. (Ein Vorschlag zur Änderung liegt im Eingang, siehe [Vorschlag vom 21.10.](../eingang/51-vorschlag-2026-10-21-lieferzeiten-beschlaege.md).)\n\n## Mit KI\n\nDie KI darf aus Aufmaßblatt und Vorlage einen Entwurf für die Positionstexte schreiben. Preise setzt Jörn von Hand. Vor dem Versand liest Jörn das ganze Angebot einmal laut durch, so fallen die Sätze auf, die kein Mensch sagt.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/13-auftragsbestaetigung-und-anzahlung.md",
+   "kopf": {
+    "titel": "Auftragsbestätigung und Anzahlung",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Die Auftragsbestätigung geht am Tag der Zusage raus. Anzahlung 30 % bei Aufträgen über 3.000 €, bei Treppen und Einbauküchen immer. Material bestellen wir erst, wenn die Anzahlung da ist.",
+    "stand": "2026-06-30",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-06-30",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+      "abschnitt": "Auftragsbestätigung und Anzahlung",
+      "zeilen": [
+       67,
+       76
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n1. Unterschriebenes Angebot oder schriftliche Zusage (Mail reicht) kommt rein: Sabine legt den Auftrag an und schickt am selben Tag die [Auftragsbestätigung](../vorlagen/31-vorlage-auftragsbestaetigung.md).\n2. **Anzahlung:** Bei Aufträgen über 3.000 € [Beispielwert] nehmen wir 30 % Anzahlung mit der Auftragsbestätigung, bei Einbauküchen und Treppen immer 30 %. Material wird erst bestellt, wenn die Anzahlung da ist.\n3. Weitere Abschläge: bei Lieferung ins Haus 60 %, Rest nach Abnahme.\n4. Sabine trägt den Auftrag in die Werkstattliste ein, Malte plant ihn in der nächsten Montagsrunde ein.\n\n## Wenn die Anzahlung nicht kommt\n\nNach zehn Arbeitstagen ruft Sabine freundlich an. Nach weiteren zehn Arbeitstagen entscheidet Jörn, ob der Auftrag aus der Planung genommen wird.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/14-material-bestellen.md",
+   "kopf": {
+    "titel": "Material bestellen",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Malte bestellt, Kai vertritt. Niemand sonst bestellt im Namen der Firma, auch nicht „schnell mal“ im Baumarkt.",
+    "stand": "2026-10-14",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2026-11-12",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/lieferantenliste-2026-ohne-preise.md",
+      "abschnitt": "Material bestellen",
+      "zeilen": [
+       3,
+       28
+      ]
+     },
+     {
+      "quelle": "quellen/2026/organigramm-und-vertretung.md",
+      "abschnitt": "Material bestellen",
+      "zeilen": [
+       63,
+       88
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Wer bestellt\n\nMalte bestellt, Kai vertritt. Niemand sonst bestellt im Namen der Firma, auch nicht „schnell mal“ im Baumarkt. Kleinteile bis 50 € [Beispielwert] dürfen Gesellen auf Montage kaufen, Beleg geht am nächsten Tag ins Büro.\n\n## Wo wir bestellen\n\n| Material | Lieferant | Lieferzeit (üblich) |\n|---|---|---|\n| Plattenware, Kanten | Holzhandel Nord (erfunden) | 3 bis 5 Arbeitstage |\n| Massivholz | Sägewerk Am Bach (erfunden) | 1 bis 2 Wochen, Trocknung beachten |\n| Beschläge | Beschlagversand Hanse (erfunden) | 2 bis 3 Wochen |\n| Glas | Glaserei im Nachbarort (erfunden) | 2 Wochen nach Aufmaß der Glasöffnung |\n| Lack, Öl | Farbenhaus (erfunden) | 2 Arbeitstage |\n\n## So läuft es\n\n1. Material aus der Stückliste des Auftrags übernehmen, Reste im Lager vorher prüfen (Restekiste ist beschriftet nach Plattenstärke).\n2. Bestellung mit Auftragsnummer, nie mit Kundennamen.\n3. Lieferdatum in die Werkstattliste eintragen.\n4. Wareneingang: Menge und Beschädigung prüfen, Lieferschein abhaken, ins Büro.\n\n## Bekanntes Problem\n\nBei Beschlägen gab es 2026 mehrfach längere Lieferzeiten. Siehe Vorschlag im [Eingang](../eingang/51-vorschlag-2026-10-21-lieferzeiten-beschlaege.md).\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/15-montage-vorbereiten.md",
+   "kopf": {
+    "titel": "Montage vorbereiten",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Am Tag vor der Montage, spätestens 14 Uhr:",
+    "stand": "2026-07-21",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-07-21",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/montage-checkliste-aus-dem-transporter.md",
+      "abschnitt": "Montage vorbereiten",
+      "zeilen": [
+       3,
+       16
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\nAm Tag vor der Montage, spätestens 14 Uhr:\n\n- [ ] Teile vollständig, gegen Stückliste abgehakt\n- [ ] Kanten und Oberflächen geprüft, kleine Macken jetzt ausbessern, nicht beim Kunden\n- [ ] Beschläge, Schrauben, Dübel, Silikon in der beschrifteten Montagekiste\n- [ ] Schutz: Malerfolie, Kantenschutz, Filzgleiter, Schuhüberzieher\n- [ ] Werkzeugkoffer Montage vollständig (Liste innen im Deckel)\n- [ ] Transporter geladen, schwere Teile unten, Gurte fest\n- [ ] Auftragsblatt mit Adresse ausgedruckt (nicht als Foto auf dem privaten Handy)\n- [ ] Kunde am Vortag von Sabine erinnert, Uhrzeit bestätigt\n\nFehlt etwas, entscheidet Malte, ob die Montage stattfindet. Lieber einen Tag verschieben als zweimal hinfahren.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/16-montage-beim-kunden.md",
+   "kopf": {
+    "titel": "Montage beim Kunden",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Klingeln, vorstellen, kurz sagen, was heute passiert und wie lange es ungefähr dauert. Schuhüberzieher an, Laufweg mit Folie auslegen, bevor das erste Teil reinkommt.",
+    "stand": "2026-07-21",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-07-21",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/montage-checkliste-aus-dem-transporter.md",
+      "abschnitt": "Montage beim Kunden",
+      "zeilen": [
+       18,
+       36
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Ankommen\n\nKlingeln, vorstellen, kurz sagen, was heute passiert und wie lange es ungefähr dauert. Schuhüberzieher an, Laufweg mit Folie auslegen, bevor das erste Teil reinkommt.\n\n## Während der Montage\n\n- Staub vermeiden: Sägen draußen oder mit Absaugung, nie im Wohnraum ohne Absaugung.\n- Steckdosen und Leitungen: Vor jedem Bohren in Wände mit dem Leitungssucher prüfen.\n- Pausen nicht beim Kunden in der Küche, außer er bietet es an.\n- Probleme sofort melden (Wand schief, Teil passt nicht): Foto, Anruf bei Malte, dem Kunden nichts zu Kosten sagen.\n\n## Fertig\n\n1. Funktion prüfen: Türen schließen, Schubkästen laufen, Fronten in der Flucht.\n2. Aufräumen und saugen, Verpackung mitnehmen.\n3. Mit dem Kunden zusammen durchgehen und das [Abnahmeprotokoll](../vorlagen/32-vorlage-abnahmeprotokoll.md) ausfüllen.\n4. Pflegehinweis übergeben (liegt als Zettel in der Montagekiste).\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/17-abnahme-und-rechnung.md",
+   "kopf": {
+    "titel": "Abnahme und Rechnung",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Eine Woche nach der Abnahme fragt Sabine per Mail, ob alles passt, und bittet bei zufriedenen Kunden um eine Google-Bewertung. Nur einmal fragen.",
+    "stand": "2026-06-30",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-06-30",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+      "abschnitt": "Abnahme und Rechnung",
+      "zeilen": [
+       78,
+       88
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n1. Das unterschriebene Abnahmeprotokoll kommt am nächsten Arbeitstag ins Büro.\n2. Ohne Mängel: Sabine schreibt die Schlussrechnung innerhalb von drei Arbeitstagen, Zahlungsziel 14 Tage.\n3. Mit kleinen Mängeln: Termin zur Nacharbeit innerhalb von zwei Wochen. Die Schlussrechnung geht trotzdem raus, ein angemessener Betrag für den Mangel wird bis zur Nacharbeit zurückgehalten; den Betrag legt Jörn fest.\n4. Mit wesentlichen Mängeln: keine Schlussrechnung, Jörn ruft den Kunden an.\n5. Zahlungseingang prüft Sabine jeden Freitag. Erinnerung nach 14 Tagen Verzug, freundlich und ohne Mahngebühr.\n\n## Nach dem Auftrag\n\nEine Woche nach der Abnahme fragt Sabine per Mail, ob alles passt, und bittet bei zufriedenen Kunden um eine Google-Bewertung. Nur einmal fragen.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/18-reklamation.md",
+   "kopf": {
+    "titel": "Reklamation",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Reklamationen nimmt meist Sabine an. Am Telefon sagen wir nichts zu Ursache, Schuld oder Kosten und bitten um zwei Fotos mit Maßstab. Was die Nutzung einschränkt, bekommt einen Termin in fünf Arbeitstagen, alles andere bei der nächsten Montage in der Gegend.",
+    "stand": "2026-10-14",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-10-14",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/sprachnotiz-malte-reklamation-mit-fotos.md",
+      "abschnitt": "Reklamation",
+      "zeilen": [
+       5,
+       27
+      ]
+     },
+     {
+      "quelle": "quellen/2026/montage-checkliste-aus-dem-transporter.md",
+      "abschnitt": "Reklamation",
+      "zeilen": [
+       38,
+       60
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Annehmen\n\nWer die Reklamation annimmt (meist Sabine), schreibt auf:\n\n- Auftragsnummer, was genau nicht passt, seit wann\n- ob es die Nutzung einschränkt (Tür schließt nicht) oder nur stört (Kratzer)\n- **Fotos:** Den Kunden bitten, zwei Fotos zu schicken: eins aus etwa zwei Metern Abstand, eins aus der Nähe mit einem Zollstock oder einer Münze daneben. (Neu seit 14.10., siehe [Änderungsprotokoll](../99-aenderungsprotokoll.md).)\n\nAm Telefon nichts zu Ursache, Schuld oder Kosten sagen. Der Satz dafür steht in den [Textbausteinen](../vorlagen/33-textbausteine-mails.md).\n\n## Bearbeiten\n\n1. Malte schaut sich die Fotos am selben oder nächsten Arbeitstag an.\n2. Schränkt es die Nutzung ein: Termin innerhalb von fünf Arbeitstagen.\n3. Sonst: Termin bei der nächsten Montage in der Gegend, spätestens nach vier Wochen.\n4. Ursache in den Auftrag schreiben (Material, Montage, Nutzung, unklar).\n5. Kulanz: bis 200 € [Beispielwert] entscheidet Malte, darüber Jörn.\n\n## Einmal im Quartal\n\nJörn und Malte schauen auf alle Reklamationen. Kommt eine Ursache dreimal vor, wird der Ablauf auf der passenden Seite geändert, über den Eingang.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/19-werkstatt-feierabend-und-maschinenpflege.md",
+   "kopf": {
+    "titel": "Werkstatt, Feierabend und Maschinenpflege",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Wer eine Maschine beschädigt oder einen Fehler bemerkt: sofort Zettel „Nicht benutzen“ dran und Malte Bescheid sagen. Niemand bekommt Ärger für eine Meldung, nur fürs Verschweigen.",
+    "stand": "2026-05-12",
+    "verantwortlich": "Kai Brandes",
+    "pruefen_bis": "2027-05-12",
+    "sichtbarkeit": "team:werkstatt",
+    "besitzer": "kai",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/werkstattordner-eingescannt.md",
+      "abschnitt": "Werkstatt, Feierabend und Maschinenpflege",
+      "zeilen": [
+       47,
+       68
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\n## Jeden Tag, 15 Minuten vor Feierabend\n\n- Maschinen ausschalten und abschließen (Schlüssel an das Brett im Büro)\n- Späne an Formatkreissäge, Hobel und Kantenanleimmaschine absaugen\n- Leimtopf der Kantenanleimmaschine abdecken\n- Boden fegen, Absaugung leeren, wenn die Anzeige über 80 % steht\n- Licht und Kompressor aus, Rolltor zu\n\n## Jeden Freitag\n\n- Sägeblätter prüfen, stumpfe in die Kiste „Schärfdienst“\n- Hobelmesser auf Ausbrüche prüfen\n- Erste-Hilfe-Kasten: fehlt etwas, Zettel an Malte\n\n## Einmal im Monat\n\n- Absauganlage: Filter abklopfen, Sack wechseln (Kai)\n- Druckluft: Kondenswasser ablassen\n\nWer eine Maschine beschädigt oder einen Fehler bemerkt: sofort Zettel „Nicht benutzen“ dran und Malte Bescheid sagen. Niemand bekommt Ärger für eine Meldung, nur fürs Verschweigen.\n"
+  },
+  {
+   "pfad": "wissen/ablaeufe/20-urlaub-und-krankmeldung.md",
+   "kopf": {
+    "titel": "Urlaub und Krankmeldung",
+    "gruppe": "Abläufe",
+    "kurzfassung": "Hier steht nur der Ablauf. Wer wann Urlaub hat oder krank ist, steht nicht im Wissensordner, sondern im Urlaubsplaner im Büro.",
+    "stand": "2026-01-08",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2026-11-30",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/urlaubsregel-2026.md",
+      "abschnitt": "Urlaub und Krankmeldung",
+      "zeilen": [
+       3,
+       19
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb, alle Namen, Zahlen und Lieferanten ausgedacht.\n\nHier steht nur der Ablauf. Wer wann Urlaub hat oder krank ist, steht nicht im Wissensordner, sondern im Urlaubsplaner im Büro.\n\n## Urlaub\n\n- Antrag bis 31. Januar für das ganze Jahr, mindestens zwei Wochen am Stück in den Sommerferien möglich.\n- Betriebsferien: die Woche zwischen Weihnachten und Neujahr.\n- Kurzfristiger Urlaub nach Absprache mit Malte, wenn die Werkstattplanung es hergibt.\n\n## Krankmeldung\n\n1. Vor Arbeitsbeginn anrufen (nicht schreiben): Malte, wenn nicht erreichbar Sabine.\n2. Sagen, ob eine Montage betroffen ist, damit umgeplant werden kann.\n3. Die Krankmeldung kommt bei gesetzlich Versicherten elektronisch, Sabine ruft sie ab.\n\nGründe für die Krankheit musst du nicht nennen.\n"
+  },
+  {
+   "pfad": "wissen/vorlagen/30-vorlage-angebot-innentuer.md",
+   "kopf": {
+    "titel": "Vorlage Angebot Innentür",
+    "gruppe": "Vorlagen",
+    "kurzfassung": "Betreff: Ihr Angebot für <Anzahl> Innentüren, Auftrag <Nummer>",
+    "stand": "2026-10-14",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": "2027-10-14",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "joern",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Vorlage Angebot Innentür",
+      "zeilen": [
+       3,
+       28
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb. Platzhalter in spitzen Klammern werden beim Ausfüllen ersetzt.\n\n**Betreff:** Ihr Angebot für <Anzahl> Innentüren, Auftrag <Nummer>\n\nGuten Tag <Anrede Name>,\n\nvielen Dank für den Termin am <Datum Aufmaß>. Wie besprochen, bieten wir Ihnen Folgendes an:\n\n| Pos. | Leistung | Menge | Preis |\n|---|---|---|---|\n| 1 | Innentür <Oberfläche>, Türblatt <Maß>, Zarge passend zur Wandstärke <cm>, Bänder und Schloss <Ausführung> | <n> Stück | <€> |\n| 2 | Drückergarnitur <Modell>, Edelstahl matt | <n> Stück | <€> |\n| 3 | Demontage und Entsorgung der alten Türen und Zargen | <n> Stück | <€> |\n| 4 | Montage inklusive Anpassung an die Wand | pauschal | <€> |\n\n**Empfohlen:** <Ausführung A>. **Einfacher:** <Ausführung B> mit <Unterschied in einem Satz>.\n\n**Lieferzeit:** etwa KW <von> bis KW <bis> nach Auftragsbestätigung und Anzahlung.\n**Zahlung:** 30 % Anzahlung mit Auftragsbestätigung, 60 % bei Lieferung, Rest nach Abnahme.\n**Gültig bis:** <Datum, vier Wochen>.\n\nWenn Sie Fragen haben, rufen Sie gerne an.\n\nViele Grüße\n<Name>\nTischlerei Wendt GmbH\n"
+  },
+  {
+   "pfad": "wissen/vorlagen/31-vorlage-auftragsbestaetigung.md",
+   "kopf": {
+    "titel": "Vorlage Auftragsbestätigung",
+    "gruppe": "Vorlagen",
+    "kurzfassung": "Betreff: Auftragsbestätigung <Nummer>, <Leistung kurz>",
+    "stand": "2026-06-30",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-06-30",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Vorlage Auftragsbestätigung",
+      "zeilen": [
+       30,
+       43
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n**Betreff:** Auftragsbestätigung <Nummer>, <Leistung kurz>\n\nGuten Tag <Anrede Name>,\n\nvielen Dank für Ihren Auftrag. Wir bestätigen die Ausführung nach unserem Angebot <Nummer> vom <Datum> in der Ausführung <A/B>.\n\n- **Anzahlung:** <Betrag> (30 %), bitte bis <Datum> auf das Konto in der Rechnung. Danach bestellen wir das Material.\n- **Voraussichtlicher Montagezeitraum:** KW <von> bis KW <bis>. Den genauen Tag stimmen wir etwa zwei Wochen vorher mit Ihnen ab.\n- **Ihre Ansprechpartnerin für Termine:** Sabine Kröger, Büro.\n\nViele Grüße\nSabine Kröger\n"
+  },
+  {
+   "pfad": "wissen/vorlagen/32-vorlage-abnahmeprotokoll.md",
+   "kopf": {
+    "titel": "Vorlage Abnahmeprotokoll",
+    "gruppe": "Vorlagen",
+    "kurzfassung": "Geprüft gemeinsam mit dem Kunden",
+    "stand": "2026-07-21",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-07-21",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Vorlage Abnahmeprotokoll",
+      "zeilen": [
+       45,
+       68
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n| Feld | Eintrag |\n|---|---|\n| Auftrag | <Nummer> |\n| Datum | <Datum> |\n| Leistung | <kurz> |\n| Monteur | <Name> |\n\n**Geprüft gemeinsam mit dem Kunden**\n\n- [ ] Alle Teile montiert wie im Angebot\n- [ ] Funktion geprüft (Türen, Schubkästen, Klappen, Schlösser)\n- [ ] Oberflächen ohne Beschädigung\n- [ ] Arbeitsbereich gereinigt, Verpackung mitgenommen\n- [ ] Pflegehinweis übergeben\n\n**Mängel** (wenn keine, „keine“ eintragen):\n\n1. <Mangel, Ort, Foto-Nr.>\n\n**Ergebnis:** ☐ abgenommen ☐ abgenommen mit Mängeln (Nacharbeit bis <Datum>) ☐ nicht abgenommen\n\nUnterschrift Kunde ________ Unterschrift Monteur ________\n"
+  },
+  {
+   "pfad": "wissen/vorlagen/33-textbausteine-mails.md",
+   "kopf": {
+    "titel": "Textbausteine für Mails und Telefon",
+    "gruppe": "Vorlagen",
+    "kurzfassung": "„Vielen Dank für Ihre Anfrage. Diese Arbeit übernehmen wir leider nicht, weil <Grund in einem Satz>.",
+    "stand": "2026-09-16",
+    "verantwortlich": "Sabine Kröger",
+    "pruefen_bis": "2027-09-16",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "sabine",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Textbausteine für Mails und Telefon",
+      "zeilen": [
+       70,
+       90
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n## Absage, weil es nicht zu uns passt\n\n„Vielen Dank für Ihre Anfrage. Diese Arbeit übernehmen wir leider nicht, weil <Grund in einem Satz>. Fragen Sie gerne bei <Kollege> nach, die machen so etwas regelmäßig.“\n\n## Wenn du auf der Baustelle nach Kosten oder Schuld gefragt wirst\n\n„Das kann ich Ihnen hier nicht verbindlich sagen. Ich mache Fotos und gebe es heute noch an Herrn Ohlsen weiter, er meldet sich bei Ihnen.“\n\n## Reklamation am Telefon\n\n„Danke, dass Sie Bescheid geben. Können Sie uns zwei Fotos schicken, eins aus etwa zwei Metern Abstand und eins aus der Nähe mit einem Zollstock oder einer Münze daneben? Dann schaut sich Herr Ohlsen das bis morgen an.“\n\n## Nachfassen nach dem Angebot\n\n„Ich wollte kurz hören, ob unser Angebot angekommen ist und ob Fragen offen sind. Wenn Sie sich anders entschieden haben, ist das auch völlig in Ordnung.“\n\n## Bitte um Bewertung\n\n„Wir hoffen, Sie haben Freude an <Leistung>. Wenn Sie zufrieden waren, würden wir uns über eine kurze Bewertung bei Google freuen. Das hilft uns als kleinem Betrieb sehr.“\n"
+  },
+  {
+   "pfad": "wissen/vorlagen/34-vorlage-aufmassblatt.md",
+   "kopf": {
+    "titel": "Vorlage Aufmaßblatt",
+    "gruppe": "Vorlagen",
+    "kurzfassung": "Maße (mm)",
+    "stand": "2026-08-28",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2027-08-28",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/vorlagen-mappe-buero.md",
+      "abschnitt": "Vorlage Aufmaßblatt",
+      "zeilen": [
+       92,
+       112
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n| Feld | Eintrag |\n|---|---|\n| Auftrag | <Nummer> (kein Kundenname) |\n| Datum, Aufmaß durch | <Datum>, <Name> |\n| Raum | <z. B. Flur EG> |\n| Leistung | <Tür, Schrank, Treppe, …> |\n\n**Maße (mm)**\n\n| Maß | oben/links | Mitte | unten/rechts | gilt |\n|---|---|---|---|---|\n| Breite |  |  |  | kleinstes |\n| Höhe |  |  |  | kleinstes |\n| Tiefe / Wandstärke |  |  |  |  |\n\n**Abweichungen:** Lot <mm auf 2 m>, Winkel <°>, Feuchte <%>\n**Zugang:** Parkplatz ☐ Aufzug ☐ Treppe eng ☐ Teilelieferung nötig ☐\n**Kundenwunsch** (in seinen Worten): <…>\n**Fotos:** <Anzahl>, ohne Personen und Hausnummern ☐\n"
+  },
+  {
+   "pfad": "wissen/einarbeitung/40-erste-woche.md",
+   "kopf": {
+    "titel": "Die erste Woche",
+    "gruppe": "Einarbeitung",
+    "kurzfassung": "Schön, dass du da bist. Diese Seite ist für dich, egal ob Geselle, Azubi oder Aushilfe.",
+    "stand": "2026-09-02",
+    "verantwortlich": "Kai Brandes",
+    "pruefen_bis": "2027-09-02",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "kai",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/werkstattordner-eingescannt.md",
+      "abschnitt": "Die erste Woche",
+      "zeilen": [
+       16,
+       45
+      ]
+     },
+     {
+      "quelle": "quellen/2026/glossar-aus-dem-azubi-ordner.md",
+      "abschnitt": "Die erste Woche",
+      "zeilen": [
+       17,
+       46
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\nSchön, dass du da bist. Diese Seite ist für dich, egal ob Geselle, Azubi oder Aushilfe. Du musst nicht alles an einem Tag behalten, alles steht hier im Ordner und du darfst jederzeit fragen. Dein Pate in der ersten Woche ist Kai.\n\n## Tag 1\n\n- Rundgang Werkstatt, Lager, Büro, Pausenraum, Toiletten, Erste Hilfe, Feuerlöscher\n- Spind und Arbeitskleidung, Gehörschutz, Schutzbrille\n- Sicherheitsunterweisung mit Malte, siehe [Werkstatt-Sicherheit](41-werkstatt-sicherheit.md)\n- Zugang zum Wissensordner und zum Firmen-KI-Zugang (Sabine), dazu die [Regeln für KI](../02-regeln-fuer-ki.md) lesen\n\n## Tag 2 und 3\n\n- Mitlaufen in der Werkstatt, erst zuschauen, dann unter Aufsicht an der Formatkreissäge\n- [Feierabend-Runde](../ablaeufe/19-werkstatt-feierabend-und-maschinenpflege.md) einmal mitmachen\n\n## Tag 4\n\n- Mit auf Montage, beim Vorbereiten helfen: [Montage vorbereiten](../ablaeufe/15-montage-vorbereiten.md)\n\n## Tag 5\n\n- Kurzes Gespräch mit Malte: Was war gut, was war unklar, was fehlt im Ordner?\n- Was dir gefehlt hat, schreibst du als Notiz in den [Eingang](../eingang/50-so-funktioniert-der-eingang.md). Gerade neue Leute sehen, was wir längst nicht mehr sehen.\n\n## Fragen, die alle in der ersten Woche stellen\n\n- **Wann ist Feierabend?** Montag bis Donnerstag 16:30 Uhr, Freitag 13 Uhr.\n- **Wo parke ich?** Hinter der Halle, nicht vor dem Rolltor.\n- **Wen frage ich?** In der Werkstatt Kai oder Malte, alles andere Sabine. Siehe [Wer macht was](../01-wer-macht-was.md).\n"
+  },
+  {
+   "pfad": "wissen/einarbeitung/41-werkstatt-sicherheit.md",
+   "kopf": {
+    "titel": "Werkstatt-Sicherheit",
+    "gruppe": "Einarbeitung",
+    "kurzfassung": "Das Wichtigste aus der Werkstatt auf einer Seite: Maschinen nur nach Unterweisung, Gehörschutz, keine Handschuhe an drehenden Maschinen, Lacke nur im Lackraum. Die Betriebsanweisung an der Maschine geht immer vor.",
+    "stand": "2026-03-03",
+    "verantwortlich": "Malte Ohlsen",
+    "pruefen_bis": "2026-10-15",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "malte",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/werkstattordner-eingescannt.md",
+      "abschnitt": "Werkstatt-Sicherheit",
+      "zeilen": [
+       3,
+       14
+      ]
+     },
+     {
+      "quelle": "quellen/2026/arbeitsschutzgesetz-12-webseite-beobachtet.md",
+      "abschnitt": "Werkstatt-Sicherheit",
+      "zeilen": [
+       3,
+       14
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb. Ersetzt nicht die Unterweisung und nicht die Betriebsanweisungen an den Maschinen.\n\n- An jeder Maschine hängt eine Betriebsanweisung. Die gilt, nicht diese Seite.\n- An die Formatkreissäge, den Abrichthobel und die Fräse nur nach Unterweisung durch Malte, Azubis im ersten Lehrjahr nur unter Aufsicht.\n- Gehörschutz an allen Maschinen, Schutzbrille beim Schleifen und Fräsen.\n- Keine Handschuhe an drehenden Maschinen.\n- Schiebestock benutzen, immer.\n- Absaugung läuft, bevor die Maschine läuft.\n- Lacke und Lösungsmittel nur im Lackraum, Lüftung an.\n- Unfall oder Beinahe-Unfall: sofort Malte, Eintrag ins Verbandbuch im Erste-Hilfe-Schrank.\n\nUnterweisung wird jährlich wiederholt, Malte lädt dazu ein.\n"
+  },
+  {
+   "pfad": "wissen/einarbeitung/42-azubi-leitfaden.md",
+   "kopf": {
+    "titel": "Leitfaden für Azubis",
+    "gruppe": "Einarbeitung",
+    "kurzfassung": "",
+    "stand": "2026-08-01",
+    "verantwortlich": "Kai Brandes",
+    "pruefen_bis": "2027-08-01",
+    "sichtbarkeit": "betrieb",
+    "besitzer": "kai",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/werkstattordner-eingescannt.md",
+      "abschnitt": "Leitfaden für Azubis",
+      "zeilen": [
+       70,
+       77
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n- **Berichtsheft:** jede Woche, freitags letzte halbe Stunde ist dafür reserviert. Kai zeichnet monatlich ab.\n- **Berufsschule:** Blockunterricht, Termine hängen an der Tafel. In Schulwochen kommst du nicht in die Werkstatt.\n- **Lernplan im Betrieb:** 1. Jahr Handwerkzeug, Plattenzuschnitt, Kanten, einfache Korpusse. 2. Jahr Massivholz, Beschläge, Montage mit. 3. Jahr eigene Stücke unter Aufsicht, Gesellenstück.\n- **Gesellenstück:** Idee bis Ende des zweiten Lehrjahres mit Kai besprechen. Material zahlt der Betrieb nach Absprache.\n- **Fragen:** Es gibt keine dummen Fragen. Lieber zweimal fragen als einmal falsch sägen.\n- **KI:** Du darfst den Wissensordner per KI fragen. Fürs Berichtsheft schreibst du selbst, das prüft die Kammer und das merkt man.\n"
+  },
+  {
+   "pfad": "wissen/einarbeitung/43-glossar.md",
+   "kopf": {
+    "titel": "Glossar, Wörter, die wir benutzen",
+    "gruppe": "Einarbeitung",
+    "kurzfassung": "",
+    "stand": "2026-09-16",
+    "verantwortlich": "Kai Brandes",
+    "pruefen_bis": null,
+    "sichtbarkeit": "betrieb",
+    "besitzer": "kai",
+    "fundstellen": [
+     {
+      "quelle": "quellen/2026/glossar-aus-dem-azubi-ordner.md",
+      "abschnitt": "Glossar, Wörter, die wir benutzen",
+      "zeilen": [
+       3,
+       15
+      ]
+     }
+    ],
+    "status": "freigegeben"
+   },
+   "text": "> **Beispiel.** Erfundener Betrieb.\n\n| Wort | Was wir damit meinen |\n|---|---|\n| Aufmaß | Termin beim Kunden zum Messen, Beraten, Fotografieren |\n| Montagekiste | beschriftete Kiste je Auftrag mit allen Kleinteilen |\n| Restekiste | Plattenreste im Lager, sortiert nach Stärke |\n| Montagsrunde | Montag 7:15 Uhr, zehn Minuten an der Tafel, Wochenplan |\n| Werkstattliste | Liste aller Aufträge mit Status, hängt an der Tafel und liegt digital im Büro |\n| Kundenwunsch | eine Zeile im Aufmaßblatt in den Worten des Kunden |\n| Eingang | Ort im Wissensordner, an dem Neues landet, bevor es freigegeben ist |\n| Freigabe | Jörn oder Sabine sagen ja, dann kommt es in den Ordner |\n| Quartalsdurchgang | einmal im Quartal schauen Sabine und Jörn alle Seiten mit altem Stand durch |\n"
+  },
+  {
+   "pfad": "wissen/notizen/ideen-werkstatt-2027.md",
+   "kopf": {
+    "titel": "Ideen Werkstatt 2027",
+    "gruppe": "Notizen",
+    "kurzfassung": "Nur für mich, noch nicht fürs Team.",
+    "stand": "2026-10-18",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": null,
+    "sichtbarkeit": "ich",
+    "besitzer": "joern",
+    "fundstellen": [],
+    "status": "entwurf"
+   },
+   "text": "Nur für mich, noch nicht fürs Team.\n\n- Absaugung in Halle 2 erweitern, zwei Angebote einholen.\n- Zweite Formatkreissäge? Erst rechnen, wenn die Auftragslage im Frühjahr klar ist.\n- Lackraum: Nachlaufzeit der Lüftung auf ein Schild an der Tür schreiben.\n"
+  },
+  {
+   "pfad": "wissen/notizen/gespraech-steuerberatung.md",
+   "kopf": {
+    "titel": "Notizen Termin Steuerberatung",
+    "gruppe": "Notizen",
+    "kurzfassung": "Fragen für den Termin im November:",
+    "stand": "2026-09-30",
+    "verantwortlich": "Jörn Wendt",
+    "pruefen_bis": null,
+    "sichtbarkeit": "ich",
+    "besitzer": "joern",
+    "fundstellen": [],
+    "status": "entwurf"
+   },
+   "text": "Fragen für den Termin im November:\n\n- Wann lohnt sich die Investition in die Absaugung steuerlich?\n- Was brauchen sie von Sabine bis Ende Januar?\n"
+  }
+ ],
+ "quellen": [
+  {
+   "pfad": "quellen/2026/werkstattordner-eingescannt.md",
+   "kopf": {
+    "titel": "Werkstattordner, eingescannt",
+    "art": "datei",
+    "herkunft": "werkstattordner-eingescannt.pdf",
+    "erfasst_am": "2026-03-03",
+    "erfasst_von": "sabine",
+    "sichtbarkeit": "team:werkstatt",
+    "sammlung": "Einarbeitung",
+    "hash": "sha256:7175656c6c656e2f323032362f7765726b73746174746f72646e65722d65696e",
+    "ersetzt": "quellen/2025/werkstattordner-eingescannt.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Fassung 2023"
+   },
+   "text": "# Werkstattordner, eingescannt\n\n## Werkstatt-Sicherheit\n\n- An jeder Maschine hängt eine Betriebsanweisung. Die gilt, nicht diese Seite.\n- An die Formatkreissäge, den Abrichthobel und die Fräse nur nach Unterweisung durch Malte, Azubis im ersten Lehrjahr nur unter Aufsicht.\n- Gehörschutz an allen Maschinen, Schutzbrille beim Schleifen und Fräsen.\n- Keine Handschuhe an drehenden Maschinen.\n- Schiebestock benutzen, immer.\n- Absaugung läuft, bevor die Maschine läuft.\n- Lacke und Lösungsmittel nur im Lackraum, Lüftung an.\n- Unfall oder Beinahe-Unfall: sofort Malte, Eintrag ins Verbandbuch im Erste-Hilfe-Schrank.\n\nUnterweisung wird jährlich wiederholt, Malte lädt dazu ein.\n\n## Die erste Woche\n\nSchön, dass du da bist. Diese Seite ist für dich, egal ob Geselle, Azubi oder Aushilfe. Du musst nicht alles an einem Tag behalten, alles steht hier im Ordner und du darfst jederzeit fragen. Dein Pate in der ersten Woche ist Kai.\n\n### Tag 1\n\n- Rundgang Werkstatt, Lager, Büro, Pausenraum, Toiletten, Erste Hilfe, Feuerlöscher\n- Spind und Arbeitskleidung, Gehörschutz, Schutzbrille\n- Sicherheitsunterweisung mit Malte, siehe [Werkstatt-Sicherheit]\n- Zugang zum Wissensordner und zum Firmen-KI-Zugang (Sabine), dazu die [Regeln für KI] lesen\n\n### Tag 2 und 3\n\n- Mitlaufen in der Werkstatt, erst zuschauen, dann unter Aufsicht an der Formatkreissäge\n- [Feierabend-Runde] einmal mitmachen\n\n### Tag 4\n\n- Mit auf Montage, beim Vorbereiten helfen: [Montage vorbereiten]\n\n### Tag 5\n\n- Kurzes Gespräch mit Malte: Was war gut, was war unklar, was fehlt im Ordner?\n- Was dir gefehlt hat, schreibst du als Notiz in den [Eingang]. Gerade neue Leute sehen, was wir längst nicht mehr sehen.\n\n### Fragen, die alle in der ersten Woche stellen\n\n- **Wann ist Feierabend?** Montag bis Donnerstag 16:30 Uhr, Freitag 13 Uhr.\n- **Wo parke ich?** Hinter der Halle, nicht vor dem Rolltor.\n- **Wen frage ich?** In der Werkstatt Kai oder Malte, alles andere Sabine. Siehe [Wer macht was].\n\n## Werkstatt, Feierabend und Maschinenpflege\n\n### Jeden Tag, 15 Minuten vor Feierabend\n\n- Maschinen ausschalten und abschließen (Schlüssel an das Brett im Büro)\n- Späne an Formatkreissäge, Hobel und Kantenanleimmaschine absaugen\n- Leimtopf der Kantenanleimmaschine abdecken\n- Boden fegen, Absaugung leeren, wenn die Anzeige über 80 % steht\n- Licht und Kompressor aus, Rolltor zu\n\n### Jeden Freitag\n\n- Sägeblätter prüfen, stumpfe in die Kiste „Schärfdienst“\n- Hobelmesser auf Ausbrüche prüfen\n- Erste-Hilfe-Kasten: fehlt etwas, Zettel an Malte\n\n### Einmal im Monat\n\n- Absauganlage: Filter abklopfen, Sack wechseln (Kai)\n- Druckluft: Kondenswasser ablassen\n\nWer eine Maschine beschädigt oder einen Fehler bemerkt: sofort Zettel „Nicht benutzen“ dran und Malte Bescheid sagen. Niemand bekommt Ärger für eine Meldung, nur fürs Verschweigen.\n\n## Leitfaden für Azubis\n\n- **Berichtsheft:** jede Woche, freitags letzte halbe Stunde ist dafür reserviert. Kai zeichnet monatlich ab.\n- **Berufsschule:** Blockunterricht, Termine hängen an der Tafel. In Schulwochen kommst du nicht in die Werkstatt.\n- **Lernplan im Betrieb:** 1. Jahr Handwerkzeug, Plattenzuschnitt, Kanten, einfache Korpusse. 2. Jahr Massivholz, Beschläge, Montage mit. 3. Jahr eigene Stücke unter Aufsicht, Gesellenstück.\n- **Gesellenstück:** Idee bis Ende des zweiten Lehrjahres mit Kai besprechen. Material zahlt der Betrieb nach Absprache.\n- **Fragen:** Es gibt keine dummen Fragen. Lieber zweimal fragen als einmal falsch sägen.\n- **KI:** Du darfst den Wissensordner per KI fragen. Fürs Berichtsheft schreibst du selbst, das prüft die Kammer und das merkt man.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/ablauf-vom-anruf-bis-zur-rechnung.md",
+   "kopf": {
+    "titel": "Ablauf vom Anruf bis zur Rechnung",
+    "art": "datei",
+    "herkunft": "ablauf-vom-anruf-bis-zur-rechnung.docx",
+    "erfasst_am": "2026-06-30",
+    "erfasst_von": "joern",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Abläufe",
+    "hash": "sha256:7175656c6c656e2f323032362f61626c6175662d766f6d2d616e7275662d6269",
+    "ersetzt": "quellen/2025/ablauf-vom-anruf-bis-zur-rechnung.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Fassung 01/2025"
+   },
+   "text": "# Ablauf vom Anruf bis zur Rechnung\n\n## Ablauf Auftrag, vom Anruf bis zum Angebot\n\nDas ist der Weg, den jede Anfrage bei uns nimmt. Die Schritte im Einzelnen stehen auf den Seiten 11 bis 13.\n\n1. **Anfrage annehmen** (Sabine). Egal ob Telefon, Mail oder Formular: Die Anfrage kommt am selben Tag in die Auftragsverwaltung, mit Art der Arbeit (Tür, Treppe, Küche, Einbauschrank, Fenster, Reparatur), Ort und gewünschtem Zeitraum.\n2. **Passt das zu uns?** (Sabine, im Zweifel Jörn). Wir machen keine Fenster unter drei Stück, keine reinen Montagen von Möbeln aus dem Möbelhaus und nichts weiter als 40 km von Musterhude. Passt es nicht, sagt Sabine freundlich ab und nennt, wenn möglich, einen Kollegen. Den Satz dafür gibt es in den [Textbausteinen].\n3. **Aufmaßtermin vereinbaren** (Sabine). Innerhalb von zehn Arbeitstagen. Bei Reparaturen reicht oft ein Foto vom Kunden, dann entfällt der Termin.\n4. **Aufmaß vor Ort** (Malte). Siehe [Aufmaß vor Ort].\n5. **Angebot schreiben** (Jörn). Siehe [Angebot schreiben]. Ziel: Angebot spätestens fünf Arbeitstage nach dem Aufmaß beim Kunden.\n6. **Nachfassen** (Jörn). Zehn Arbeitstage nach Versand einmal anrufen. Kein zweites Nachfassen, außer der Kunde bittet darum.\n7. **Auftrag oder Absage** in der Auftragsverwaltung vermerken, bei Absage mit Grund (Preis, Termin, anders entschieden, keine Rückmeldung).\n\n### Warum wir den Absagegrund notieren\n\nEinmal im Quartal schaut Jörn auf die Gründe. Wenn „Termin“ häufiger vorkommt als „Preis“, liegt das Problem in der Werkstattplanung, nicht in der Kalkulation.\n\n## Aufmaß vor Ort\n\n### Mitnehmen\n\n- Laser-Entfernungsmesser und Zollstock (beides, der Laser lügt an Glas und dunklen Flächen)\n- Wasserwaage 2 m, Winkel, Feuchtemessgerät\n- Tablet mit dem [Aufmaßblatt]\n- Muster: Furnierkarte, Griffmusterbrett, Kantenmuster\n\n### Vor Ort\n\n1. Erst zuhören, dann messen. Was soll das Möbel oder Bauteil können, was stört am alten?\n2. Jedes Maß dreimal: oben, Mitte, unten (bei Breiten) und links, Mitte, rechts (bei Höhen). Das kleinste Maß zählt.\n3. Wände auf Lot und Winkel prüfen. Abweichungen über 5 mm auf 2 m ins Aufmaßblatt schreiben, das ändert die Konstruktion.\n4. Bei Altbau Feuchte messen (Außenwände, Keller). Über 4 % Holzfeuchte am Bestand oder sichtbare Stockflecken: Jörn vor dem Angebot informieren.\n5. Fotos: Gesamtansicht, jede Ecke, Steckdosen und Schalter, Heizkörper, Zugang (Treppenhaus, Türbreiten). **Keine Personen, keine Hausnummern, keine Familienfotos an der Wand im Bild.**\n6. Zugang klären: Parkplatz für den Transporter, Aufzug, enge Treppen. Das entscheidet, ob wir in Teilen liefern.\n\n### Nach dem Termin\n\nAufmaßblatt und Fotos am selben Tag in den Auftrag laden. Was der Kunde besonders wichtig fand, als eigene Zeile „Kundenwunsch“ ins Aufmaßblatt, in seinen Worten.\n\n## Angebot schreiben\n\n### Grundsätze\n\n- Ein Angebot passt auf zwei Seiten. Was mehr braucht, kommt als Anlage (Zeichnung, Materialliste).\n- Jede Position beschreibt, was der Kunde bekommt, nicht wie wir es bauen. „Innentür weiß lackiert, Zarge passend zur Wandstärke 12 cm, Drückergarnitur Edelstahl“ statt „Türblatt Röhrenspan 40 mm“.\n- Bei mehr als 5.000 € Auftragswert [Beispielwert] bieten wir zwei Ausführungen an, eine einfachere und die empfohlene. Die Empfehlung ist markiert.\n- Jedes Angebot hat ein „gültig bis“, Standard sind vier Wochen.\n- Lieferzeit nennen wir als Zeitraum in Kalenderwochen, nie als festes Datum, solange das Material nicht bestellt ist.\n\n### Kalkulation\n\nDie Kalkulation liegt in der Tabelle „Kalkulation 2026“ im Büro, nicht hier. Stundensätze und Zuschläge stehen nur dort und werden nicht in den Wissensordner kopiert.\n\n### Vorlage\n\nDie Vorlage für Innentüren liegt unter [Vorlage Angebot Innentür]. Für andere Arbeiten gilt derselbe Aufbau.\n\n### Lieferzeiten Beschläge\n\nFür Beschläge rechnen wir mit zwei bis drei Wochen ab Bestellung. (Ein Vorschlag zur Änderung liegt im Eingang, siehe [Vorschlag vom 21.10.].)\n\n### Mit KI\n\nDie KI darf aus Aufmaßblatt und Vorlage einen Entwurf für die Positionstexte schreiben. Preise setzt Jörn von Hand. Vor dem Versand liest Jörn das ganze Angebot einmal laut durch, so fallen die Sätze auf, die kein Mensch sagt.\n\n## Auftragsbestätigung und Anzahlung\n\n1. Unterschriebenes Angebot oder schriftliche Zusage (Mail reicht) kommt rein: Sabine legt den Auftrag an und schickt am selben Tag die [Auftragsbestätigung].\n2. **Anzahlung:** Bei Aufträgen über 3.000 € [Beispielwert] nehmen wir 30 % Anzahlung mit der Auftragsbestätigung, bei Einbauküchen und Treppen immer 30 %. Material wird erst bestellt, wenn die Anzahlung da ist.\n3. Weitere Abschläge: bei Lieferung ins Haus 60 %, Rest nach Abnahme.\n4. Sabine trägt den Auftrag in die Werkstattliste ein, Malte plant ihn in der nächsten Montagsrunde ein.\n\n### Wenn die Anzahlung nicht kommt\n\nNach zehn Arbeitstagen ruft Sabine freundlich an. Nach weiteren zehn Arbeitstagen entscheidet Jörn, ob der Auftrag aus der Planung genommen wird.\n\n## Abnahme und Rechnung\n\n1. Das unterschriebene Abnahmeprotokoll kommt am nächsten Arbeitstag ins Büro.\n2. Ohne Mängel: Sabine schreibt die Schlussrechnung innerhalb von drei Arbeitstagen, Zahlungsziel 14 Tage.\n3. Mit kleinen Mängeln: Termin zur Nacharbeit innerhalb von zwei Wochen. Die Schlussrechnung geht trotzdem raus, ein angemessener Betrag für den Mangel wird bis zur Nacharbeit zurückgehalten; den Betrag legt Jörn fest.\n4. Mit wesentlichen Mängeln: keine Schlussrechnung, Jörn ruft den Kunden an.\n5. Zahlungseingang prüft Sabine jeden Freitag. Erinnerung nach 14 Tagen Verzug, freundlich und ohne Mahngebühr.\n\n### Nach dem Auftrag\n\nEine Woche nach der Abnahme fragt Sabine per Mail, ob alles passt, und bittet bei zufriedenen Kunden um eine Google-Bewertung. Nur einmal fragen.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/sprachnotiz-malte-reklamation-mit-fotos.md",
+   "kopf": {
+    "titel": "Sprachnotiz Malte: Reklamation mit Fotos",
+    "art": "audio",
+    "herkunft": "sprachnotiz-malte-reklamation-mit-fotos.m4a",
+    "erfasst_am": "2026-10-13",
+    "erfasst_von": "malte",
+    "sichtbarkeit": "team:werkstatt",
+    "sammlung": "Abläufe",
+    "hash": "sha256:7175656c6c656e2f323032362f7370726163686e6f74697a2d6d616c74652d72",
+    "ersetzt": null,
+    "beobachtet": false,
+    "dauer": "2:41 min"
+   },
+   "text": "# Sprachnotiz Malte: Reklamation mit Fotos\n\nTranskript der Sprachnotiz (2:41 min). Automatisch verschriftet, nicht korrigiert.\n\n## Reklamation\n\n### Annehmen\n\nWer die Reklamation annimmt (meist Sabine), schreibt auf:\n\n- Auftragsnummer, was genau nicht passt, seit wann\n- ob es die Nutzung einschränkt (Tür schließt nicht) oder nur stört (Kratzer)\n- **Fotos:** Den Kunden bitten, zwei Fotos zu schicken: eins aus etwa zwei Metern Abstand, eins aus der Nähe mit einem Zollstock oder einer Münze daneben. (Neu seit 14.10., siehe [Änderungsprotokoll].)\n\nAm Telefon nichts zu Ursache, Schuld oder Kosten sagen. Der Satz dafür steht in den [Textbausteinen].\n\n### Bearbeiten\n\n1. Malte schaut sich die Fotos am selben oder nächsten Arbeitstag an.\n2. Schränkt es die Nutzung ein: Termin innerhalb von fünf Arbeitstagen.\n3. Sonst: Termin bei der nächsten Montage in der Gegend, spätestens nach vier Wochen.\n4. Ursache in den Auftrag schreiben (Material, Montage, Nutzung, unklar).\n5. Kulanz: bis 200 € [Beispielwert] entscheidet Malte, darüber Jörn.\n\n### Einmal im Quartal\n\nJörn und Malte schauen auf alle Reklamationen. Kommt eine Ursache dreimal vor, wird der Ablauf auf der passenden Seite geändert, über den Eingang.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/vorlagen-mappe-buero.md",
+   "kopf": {
+    "titel": "Vorlagen-Mappe Büro",
+    "art": "datei",
+    "herkunft": "vorlagen-mappe-buero.docx",
+    "erfasst_am": "2026-09-02",
+    "erfasst_von": "kai",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Vorlagen",
+    "hash": "sha256:7175656c6c656e2f323032362f766f726c6167656e2d6d617070652d62756572",
+    "ersetzt": "quellen/2025/vorlagen-mappe-buero.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Fassung 2024"
+   },
+   "text": "# Vorlagen-Mappe Büro\n\n## Vorlage Angebot Innentür\n\n**Betreff:** Ihr Angebot für <Anzahl> Innentüren, Auftrag <Nummer>\n\nGuten Tag <Anrede Name>,\n\nvielen Dank für den Termin am <Datum Aufmaß>. Wie besprochen, bieten wir Ihnen Folgendes an:\n\n| Pos. | Leistung | Menge | Preis |\n|---|---|---|---|\n| 1 | Innentür <Oberfläche>, Türblatt <Maß>, Zarge passend zur Wandstärke <cm>, Bänder und Schloss <Ausführung> | <n> Stück | <€> |\n| 2 | Drückergarnitur <Modell>, Edelstahl matt | <n> Stück | <€> |\n| 3 | Demontage und Entsorgung der alten Türen und Zargen | <n> Stück | <€> |\n| 4 | Montage inklusive Anpassung an die Wand | pauschal | <€> |\n\n**Empfohlen:** <Ausführung A>. **Einfacher:** <Ausführung B> mit <Unterschied in einem Satz>.\n\n**Lieferzeit:** etwa KW <von> bis KW <bis> nach Auftragsbestätigung und Anzahlung.\n**Zahlung:** 30 % Anzahlung mit Auftragsbestätigung, 60 % bei Lieferung, Rest nach Abnahme.\n**Gültig bis:** <Datum, vier Wochen>.\n\nWenn Sie Fragen haben, rufen Sie gerne an.\n\nViele Grüße\n<Name>\nTischlerei Wendt GmbH\n\n## Vorlage Auftragsbestätigung\n\n**Betreff:** Auftragsbestätigung <Nummer>, <Leistung kurz>\n\nGuten Tag <Anrede Name>,\n\nvielen Dank für Ihren Auftrag. Wir bestätigen die Ausführung nach unserem Angebot <Nummer> vom <Datum> in der Ausführung <A/B>.\n\n- **Anzahlung:** <Betrag> (30 %), bitte bis <Datum> auf das Konto in der Rechnung. Danach bestellen wir das Material.\n- **Voraussichtlicher Montagezeitraum:** KW <von> bis KW <bis>. Den genauen Tag stimmen wir etwa zwei Wochen vorher mit Ihnen ab.\n- **Ihre Ansprechpartnerin für Termine:** Sabine Kröger, Büro.\n\nViele Grüße\nSabine Kröger\n\n## Vorlage Abnahmeprotokoll\n\n| Feld | Eintrag |\n|---|---|\n| Auftrag | <Nummer> |\n| Datum | <Datum> |\n| Leistung | <kurz> |\n| Monteur | <Name> |\n\n**Geprüft gemeinsam mit dem Kunden**\n\n- [ ] Alle Teile montiert wie im Angebot\n- [ ] Funktion geprüft (Türen, Schubkästen, Klappen, Schlösser)\n- [ ] Oberflächen ohne Beschädigung\n- [ ] Arbeitsbereich gereinigt, Verpackung mitgenommen\n- [ ] Pflegehinweis übergeben\n\n**Mängel** (wenn keine, „keine“ eintragen):\n\n1. <Mangel, Ort, Foto-Nr.>\n\n**Ergebnis:** ☐ abgenommen ☐ abgenommen mit Mängeln (Nacharbeit bis <Datum>) ☐ nicht abgenommen\n\nUnterschrift Kunde ________ Unterschrift Monteur ________\n\n## Textbausteine für Mails und Telefon\n\n### Absage, weil es nicht zu uns passt\n\n„Vielen Dank für Ihre Anfrage. Diese Arbeit übernehmen wir leider nicht, weil <Grund in einem Satz>. Fragen Sie gerne bei <Kollege> nach, die machen so etwas regelmäßig.“\n\n### Wenn du auf der Baustelle nach Kosten oder Schuld gefragt wirst\n\n„Das kann ich Ihnen hier nicht verbindlich sagen. Ich mache Fotos und gebe es heute noch an Herrn Ohlsen weiter, er meldet sich bei Ihnen.“\n\n### Reklamation am Telefon\n\n„Danke, dass Sie Bescheid geben. Können Sie uns zwei Fotos schicken, eins aus etwa zwei Metern Abstand und eins aus der Nähe mit einem Zollstock oder einer Münze daneben? Dann schaut sich Herr Ohlsen das bis morgen an.“\n\n### Nachfassen nach dem Angebot\n\n„Ich wollte kurz hören, ob unser Angebot angekommen ist und ob Fragen offen sind. Wenn Sie sich anders entschieden haben, ist das auch völlig in Ordnung.“\n\n### Bitte um Bewertung\n\n„Wir hoffen, Sie haben Freude an <Leistung>. Wenn Sie zufrieden waren, würden wir uns über eine kurze Bewertung bei Google freuen. Das hilft uns als kleinem Betrieb sehr.“\n\n## Vorlage Aufmaßblatt\n\n| Feld | Eintrag |\n|---|---|\n| Auftrag | <Nummer> (kein Kundenname) |\n| Datum, Aufmaß durch | <Datum>, <Name> |\n| Raum | <z. B. Flur EG> |\n| Leistung | <Tür, Schrank, Treppe, …> |\n\n**Maße (mm)**\n\n| Maß | oben/links | Mitte | unten/rechts | gilt |\n|---|---|---|---|---|\n| Breite |  |  |  | kleinstes |\n| Höhe |  |  |  | kleinstes |\n| Tiefe / Wandstärke |  |  |  |  |\n\n**Abweichungen:** Lot <mm auf 2 m>, Winkel <°>, Feuchte <%>\n**Zugang:** Parkplatz ☐ Aufzug ☐ Treppe eng ☐ Teilelieferung nötig ☐\n**Kundenwunsch** (in seinen Worten): <…>\n**Fotos:** <Anzahl>, ohne Personen und Hausnummern ☐\n\n## Angebot schreiben\n\n### Grundsätze\n\n- Ein Angebot passt auf zwei Seiten. Was mehr braucht, kommt als Anlage (Zeichnung, Materialliste).\n- Jede Position beschreibt, was der Kunde bekommt, nicht wie wir es bauen. „Innentür weiß lackiert, Zarge passend zur Wandstärke 12 cm, Drückergarnitur Edelstahl“ statt „Türblatt Röhrenspan 40 mm“.\n- Bei mehr als 5.000 € Auftragswert [Beispielwert] bieten wir zwei Ausführungen an, eine einfachere und die empfohlene. Die Empfehlung ist markiert.\n- Jedes Angebot hat ein „gültig bis“, Standard sind vier Wochen.\n- Lieferzeit nennen wir als Zeitraum in Kalenderwochen, nie als festes Datum, solange das Material nicht bestellt ist.\n\n### Kalkulation\n\nDie Kalkulation liegt in der Tabelle „Kalkulation 2026“ im Büro, nicht hier. Stundensätze und Zuschläge stehen nur dort und werden nicht in den Wissensordner kopiert.\n\n### Vorlage\n\nDie Vorlage für Innentüren liegt unter [Vorlage Angebot Innentür]. Für andere Arbeiten gilt derselbe Aufbau.\n\n### Lieferzeiten Beschläge\n\nFür Beschläge rechnen wir mit zwei bis drei Wochen ab Bestellung. (Ein Vorschlag zur Änderung liegt im Eingang, siehe [Vorschlag vom 21.10.].)\n\n### Mit KI\n\nDie KI darf aus Aufmaßblatt und Vorlage einen Entwurf für die Positionstexte schreiben. Preise setzt Jörn von Hand. Vor dem Versand liest Jörn das ganze Angebot einmal laut durch, so fallen die Sätze auf, die kein Mensch sagt.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/lieferantenliste-2026-ohne-preise.md",
+   "kopf": {
+    "titel": "Lieferantenliste 2026, ohne Preise",
+    "art": "datei",
+    "herkunft": "lieferantenliste-2026-ohne-preise.xlsx",
+    "erfasst_am": "2026-10-21",
+    "erfasst_von": "sabine",
+    "sichtbarkeit": "team:buero",
+    "sammlung": "Abläufe",
+    "hash": "sha256:7175656c6c656e2f323032362f6c6965666572616e74656e6c697374652d3230",
+    "ersetzt": "quellen/2025/lieferantenliste-2026-ohne-preise.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Stand 04/2026"
+   },
+   "text": "# Lieferantenliste 2026, ohne Preise\n\n## Material bestellen\n\n### Wer bestellt\n\nMalte bestellt, Kai vertritt. Niemand sonst bestellt im Namen der Firma, auch nicht „schnell mal“ im Baumarkt. Kleinteile bis 50 € [Beispielwert] dürfen Gesellen auf Montage kaufen, Beleg geht am nächsten Tag ins Büro.\n\n### Wo wir bestellen\n\n| Material | Lieferant | Lieferzeit (üblich) |\n|---|---|---|\n| Plattenware, Kanten | Holzhandel Nord (erfunden) | 3 bis 5 Arbeitstage |\n| Massivholz | Sägewerk Am Bach (erfunden) | 1 bis 2 Wochen, Trocknung beachten |\n| Beschläge | Beschlagversand Hanse (erfunden) | 2 bis 3 Wochen |\n| Glas | Glaserei im Nachbarort (erfunden) | 2 Wochen nach Aufmaß der Glasöffnung |\n| Lack, Öl | Farbenhaus (erfunden) | 2 Arbeitstage |\n\n### So läuft es\n\n1. Material aus der Stückliste des Auftrags übernehmen, Reste im Lager vorher prüfen (Restekiste ist beschriftet nach Plattenstärke).\n2. Bestellung mit Auftragsnummer, nie mit Kundennamen.\n3. Lieferdatum in die Werkstattliste eintragen.\n4. Wareneingang: Menge und Beschädigung prüfen, Lieferschein abhaken, ins Büro.\n\n### Bekanntes Problem\n\nBei Beschlägen gab es 2026 mehrfach längere Lieferzeiten. Siehe Vorschlag im [Eingang].\n\n## Angebot schreiben\n\n### Grundsätze\n\n- Ein Angebot passt auf zwei Seiten. Was mehr braucht, kommt als Anlage (Zeichnung, Materialliste).\n- Jede Position beschreibt, was der Kunde bekommt, nicht wie wir es bauen. „Innentür weiß lackiert, Zarge passend zur Wandstärke 12 cm, Drückergarnitur Edelstahl“ statt „Türblatt Röhrenspan 40 mm“.\n- Bei mehr als 5.000 € Auftragswert [Beispielwert] bieten wir zwei Ausführungen an, eine einfachere und die empfohlene. Die Empfehlung ist markiert.\n- Jedes Angebot hat ein „gültig bis“, Standard sind vier Wochen.\n- Lieferzeit nennen wir als Zeitraum in Kalenderwochen, nie als festes Datum, solange das Material nicht bestellt ist.\n\n### Kalkulation\n\nDie Kalkulation liegt in der Tabelle „Kalkulation 2026“ im Büro, nicht hier. Stundensätze und Zuschläge stehen nur dort und werden nicht in den Wissensordner kopiert.\n\n### Vorlage\n\nDie Vorlage für Innentüren liegt unter [Vorlage Angebot Innentür]. Für andere Arbeiten gilt derselbe Aufbau.\n\n### Lieferzeiten Beschläge\n\nFür Beschläge rechnen wir mit zwei bis drei Wochen ab Bestellung. (Ein Vorschlag zur Änderung liegt im Eingang, siehe [Vorschlag vom 21.10.].)\n\n### Mit KI\n\nDie KI darf aus Aufmaßblatt und Vorlage einen Entwurf für die Positionstexte schreiben. Preise setzt Jörn von Hand. Vor dem Versand liest Jörn das ganze Angebot einmal laut durch, so fallen die Sätze auf, die kein Mensch sagt.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/montage-checkliste-aus-dem-transporter.md",
+   "kopf": {
+    "titel": "Montage-Checkliste aus dem Transporter",
+    "art": "datei",
+    "herkunft": "montage-checkliste-aus-dem-transporter.jpg",
+    "erfasst_am": "2026-05-19",
+    "erfasst_von": "joern",
+    "sichtbarkeit": "team:werkstatt",
+    "sammlung": "Abläufe",
+    "hash": "sha256:7175656c6c656e2f323032362f6d6f6e746167652d636865636b6c697374652d",
+    "ersetzt": null,
+    "beobachtet": false
+   },
+   "text": "# Montage-Checkliste aus dem Transporter\n\n## Montage vorbereiten\n\nAm Tag vor der Montage, spätestens 14 Uhr:\n\n- [ ] Teile vollständig, gegen Stückliste abgehakt\n- [ ] Kanten und Oberflächen geprüft, kleine Macken jetzt ausbessern, nicht beim Kunden\n- [ ] Beschläge, Schrauben, Dübel, Silikon in der beschrifteten Montagekiste\n- [ ] Schutz: Malerfolie, Kantenschutz, Filzgleiter, Schuhüberzieher\n- [ ] Werkzeugkoffer Montage vollständig (Liste innen im Deckel)\n- [ ] Transporter geladen, schwere Teile unten, Gurte fest\n- [ ] Auftragsblatt mit Adresse ausgedruckt (nicht als Foto auf dem privaten Handy)\n- [ ] Kunde am Vortag von Sabine erinnert, Uhrzeit bestätigt\n\nFehlt etwas, entscheidet Malte, ob die Montage stattfindet. Lieber einen Tag verschieben als zweimal hinfahren.\n\n## Montage beim Kunden\n\n### Ankommen\n\nKlingeln, vorstellen, kurz sagen, was heute passiert und wie lange es ungefähr dauert. Schuhüberzieher an, Laufweg mit Folie auslegen, bevor das erste Teil reinkommt.\n\n### Während der Montage\n\n- Staub vermeiden: Sägen draußen oder mit Absaugung, nie im Wohnraum ohne Absaugung.\n- Steckdosen und Leitungen: Vor jedem Bohren in Wände mit dem Leitungssucher prüfen.\n- Pausen nicht beim Kunden in der Küche, außer er bietet es an.\n- Probleme sofort melden (Wand schief, Teil passt nicht): Foto, Anruf bei Malte, dem Kunden nichts zu Kosten sagen.\n\n### Fertig\n\n1. Funktion prüfen: Türen schließen, Schubkästen laufen, Fronten in der Flucht.\n2. Aufräumen und saugen, Verpackung mitnehmen.\n3. Mit dem Kunden zusammen durchgehen und das [Abnahmeprotokoll] ausfüllen.\n4. Pflegehinweis übergeben (liegt als Zettel in der Montagekiste).\n\n## Reklamation\n\n### Annehmen\n\nWer die Reklamation annimmt (meist Sabine), schreibt auf:\n\n- Auftragsnummer, was genau nicht passt, seit wann\n- ob es die Nutzung einschränkt (Tür schließt nicht) oder nur stört (Kratzer)\n- **Fotos:** Den Kunden bitten, zwei Fotos zu schicken: eins aus etwa zwei Metern Abstand, eins aus der Nähe mit einem Zollstock oder einer Münze daneben. (Neu seit 14.10., siehe [Änderungsprotokoll].)\n\nAm Telefon nichts zu Ursache, Schuld oder Kosten sagen. Der Satz dafür steht in den [Textbausteinen].\n\n### Bearbeiten\n\n1. Malte schaut sich die Fotos am selben oder nächsten Arbeitstag an.\n2. Schränkt es die Nutzung ein: Termin innerhalb von fünf Arbeitstagen.\n3. Sonst: Termin bei der nächsten Montage in der Gegend, spätestens nach vier Wochen.\n4. Ursache in den Auftrag schreiben (Material, Montage, Nutzung, unklar).\n5. Kulanz: bis 200 € [Beispielwert] entscheidet Malte, darüber Jörn.\n\n### Einmal im Quartal\n\nJörn und Malte schauen auf alle Reklamationen. Kommt eine Ursache dreimal vor, wird der Ablauf auf der passenden Seite geändert, über den Eingang.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/hausregel-ki-unterschrieben.md",
+   "kopf": {
+    "titel": "Hausregel KI, unterschrieben",
+    "art": "datei",
+    "herkunft": "hausregel-ki-unterschrieben.pdf",
+    "erfasst_am": "2026-10-07",
+    "erfasst_von": "malte",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Grundlagen",
+    "hash": "sha256:7175656c6c656e2f323032362f68617573726567656c2d6b692d756e74657273",
+    "ersetzt": null,
+    "beobachtet": false
+   },
+   "text": "# Hausregel KI, unterschrieben\n\n## Regeln für KI\n\nWir nutzen KI, um schneller zu finden, was im Ordner steht, und um Texte vorzuschreiben. Die KI entscheidet nichts, schickt nichts raus und bestellt nichts. Diese Seite passt auf eine Seite, damit sie jeder liest.\n\n### Was die KI darf\n\n- Fragen zum Wissensordner beantworten, immer mit Angabe der Datei.\n- Entwürfe schreiben: Angebotstexte aus unseren Vorlagen, Antworten auf Anfragen, Zusammenfassungen von Aufmaß-Notizen ohne Kundennamen.\n- Vorschläge für den Eingang machen: Sie liest eine neue Notiz und schlägt vor, wo sie in den Ordner gehört. Ein Mensch gibt frei.\n\n### Was die KI nicht bekommt\n\n- Namen, Adressen, Telefonnummern und Mails von Kunden.\n- Alles aus der Personalakte, Krankmeldungen, Lohn.\n- Passwörter, Bankdaten, Zugänge.\n- Fotos, auf denen Menschen oder Hausnummern zu erkennen sind.\n\nWenn du unsicher bist, ob etwas hinein darf: Nicht hineingeben, Sabine fragen.\n\n### Welches Werkzeug\n\nWir nutzen nur den KI-Zugang, den die Firma eingerichtet hat (Firmenkonto, Vertrag zur Auftragsverarbeitung liegt im Büro, Server in der EU). Private KI-Konten auf dem eigenen Handy werden für Firmenkram nicht benutzt, auch nicht „nur kurz“.\n\n### Was mit der Antwort passiert\n\nEine Antwort der KI ist ein Entwurf. Du liest sie, bevor sie irgendwo hingeht. Bei Maßen, Preisen und Terminen schaust du in der genannten Datei oder im Auftrag nach. Ein Text, der an einen Kunden geht, wird von dir unterschrieben, nicht von der KI.\n\n### Wenn etwas schiefgeht\n\nHast du versehentlich Kundendaten in die KI gegeben, sag es Jörn am selben Tag. Das ist kein Drama, aber wir müssen es wissen, um zu prüfen, ob wir etwas melden müssen.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/organigramm-und-vertretung.md",
+   "kopf": {
+    "titel": "Organigramm und Vertretung",
+    "art": "datei",
+    "herkunft": "organigramm-und-vertretung.pdf",
+    "erfasst_am": "2026-09-01",
+    "erfasst_von": "kai",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Grundlagen",
+    "hash": "sha256:7175656c6c656e2f323032362f6f7267616e696772616d6d2d756e642d766572",
+    "ersetzt": "quellen/2025/organigramm-und-vertretung.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Fassung 2025"
+   },
+   "text": "# Organigramm und Vertretung\n\n## Start hier\n\nDas ist unser Wissensordner. Hier steht, wie wir arbeiten: vom ersten Anruf bis zur Rechnung, was in der Werkstatt gilt, wer wofür zuständig ist und wie neue Leute bei uns ankommen. Der Ordner liegt auf unserem eigenen Laufwerk im Büro (Ordner `Betrieb/Wissensordner`) und gehört uns. Jede Datei ist eine einfache Textdatei, die man mit jedem Programm öffnen kann, auch in zehn Jahren noch.\n\n### Wo finde ich was?\n\n| Ich will … | Dann lies … |\n|---|---|\n| wissen, wer was macht und wen ich frage | [Wer macht was] |\n| wissen, was ich mit KI machen darf und was nicht | [Regeln für KI] |\n| einen Auftrag vom Anruf bis zur Rechnung durchziehen | [Ablauf Auftrag] und die Seiten 11 bis 17 |\n| eine Reklamation aufnehmen | [Reklamation] |\n| ein Angebot oder Protokoll schreiben | Ordner [vorlagen] |\n| neu anfangen oder jemanden einarbeiten | [Erste Woche] |\n| etwas Neues aufschreiben oder etwas korrigieren | [So funktioniert der Eingang] |\n| sehen, was sich zuletzt geändert hat | [Änderungsprotokoll] |\n\n### Drei Regeln für diesen Ordner\n\n1. **Hier steht, wie wir es machen, nicht wie es im Lehrbuch steht.** Wenn wir es anders machen als hier beschrieben, ist entweder die Seite falsch oder wir. Dann sag es Sabine, die Seite wird korrigiert.\n2. **Keine Kundendaten, keine Personalakten, keine Passwörter.** Namen von Kunden, Adressen, Telefonnummern, Krankmeldungen und Zugangsdaten gehören in die Auftragsverwaltung oder in den Personalordner, nie hierher. Genaueres in den [Regeln für KI].\n3. **Niemand ändert direkt.** Neues und Korrekturen gehen in den [Eingang]. Jörn oder Sabine geben frei, dann wird die Seite ergänzt und die Änderung im Protokoll vermerkt.\n\n### Kopf jeder Seite\n\nJede Seite hat oben einen Kopf mit Stand (Datum der letzten Freigabe), wer verantwortlich ist und wer freigegeben hat. Ist der Stand älter als ein Jahr, schaut die verantwortliche Person beim nächsten Quartalsdurchgang drüber.\n\n### KI fragen\n\nWir haben eine KI an diesen Ordner angebunden, die nur lesen darf. Du kannst sie fragen wie einen Kollegen, zum Beispiel „Wie viel Anzahlung nehmen wir bei Einbauküchen?“. Sie antwortet mit dem Satz aus dem Ordner und nennt die Datei, aus der er stammt. Die Antwort ist ein Hinweis, keine Anweisung: Wenn es wichtig ist, mach die genannte Datei auf und lies nach.\n\n## Wer macht was\n\nWir sind 14 Leute: Inhaber, Büro, Meister, sechs Gesellen, ein Monteur, drei Azubis und eine Aushilfe im Lager. Hier steht, wer wofür zuständig ist und wer vertritt. Telefonnummern stehen im Telefonverzeichnis im Büro, nicht hier.\n\n| Bereich | Zuständig | Vertretung | Was genau |\n|---|---|---|---|\n| Kundenanfragen, Termine Aufmaß | Sabine Kröger (Büro) | Jörn Wendt | Telefon, Mails, Anfrageformular der Website, Terminkalender Aufmaß |\n| Aufmaß und Beratung vor Ort | Malte Ohlsen (Meister) | Jörn Wendt | Aufmaß, Fotos, Beratung, erste Einschätzung Machbarkeit |\n| Angebote | Jörn Wendt | Malte Ohlsen | Kalkulation, Angebot, Nachfassen nach zehn Arbeitstagen |\n| Material und Bestellungen | Malte Ohlsen | Kai Brandes (Geselle) | Plattenware, Beschläge, Glas, Lieferzeiten im Blick |\n| Werkstattplanung | Malte Ohlsen | Kai Brandes | Wochenplan an der Tafel, Maschinenbelegung |\n| Montageplanung | Sabine Kröger | Malte Ohlsen | Termine mit Kunden, Fahrzeuge, Montageliste |\n| Rechnungen, Mahnungen | Sabine Kröger | Jörn Wendt | Abschlags- und Schlussrechnungen, Zahlungseingang |\n| Reklamationen | Malte Ohlsen | Jörn Wendt | Aufnahme, Termin, Entscheidung Kulanz mit Jörn |\n| Ausbildung | Kai Brandes (Ausbilder) | Malte Ohlsen | Berichtsheft, Prüfungsvorbereitung, Ansprechpartner für Azubis |\n| Arbeitssicherheit | Malte Ohlsen | Kai Brandes | Unterweisungen, Erste-Hilfe-Kasten, Absauganlage |\n| Wissensordner | Sabine Kröger | Jörn Wendt | Eingang sichten, Freigaben einholen, Protokoll führen |\n| Website und Google-Profil | Sabine Kröger | Jörn Wendt | Öffnungszeiten, Fotos, Antworten auf Bewertungen |\n\n### Wer entscheidet was?\n\n- **Jörn** entscheidet über Preise, Kulanz über 200 € [Beispielwert], Einstellungen und alles, was Geld bindet.\n- **Malte** entscheidet in der Werkstatt und auf der Baustelle: Reihenfolge, Material, ob eine Montage verschoben wird.\n- **Sabine** entscheidet über Termine und darüber, was im Wissensordner landet (zusammen mit Jörn).\n\n### Wenn niemand erreichbar ist\n\nAuf der Baustelle gilt: erst sichern, dann fotografieren, dann anrufen. Kein Mitarbeiter sagt dem Kunden etwas zu Kosten oder Kulanz zu. Der Satz dafür steht in den [Textbausteinen].\n\n## Material bestellen\n\n### Wer bestellt\n\nMalte bestellt, Kai vertritt. Niemand sonst bestellt im Namen der Firma, auch nicht „schnell mal“ im Baumarkt. Kleinteile bis 50 € [Beispielwert] dürfen Gesellen auf Montage kaufen, Beleg geht am nächsten Tag ins Büro.\n\n### Wo wir bestellen\n\n| Material | Lieferant | Lieferzeit (üblich) |\n|---|---|---|\n| Plattenware, Kanten | Holzhandel Nord (erfunden) | 3 bis 5 Arbeitstage |\n| Massivholz | Sägewerk Am Bach (erfunden) | 1 bis 2 Wochen, Trocknung beachten |\n| Beschläge | Beschlagversand Hanse (erfunden) | 2 bis 3 Wochen |\n| Glas | Glaserei im Nachbarort (erfunden) | 2 Wochen nach Aufmaß der Glasöffnung |\n| Lack, Öl | Farbenhaus (erfunden) | 2 Arbeitstage |\n\n### So läuft es\n\n1. Material aus der Stückliste des Auftrags übernehmen, Reste im Lager vorher prüfen (Restekiste ist beschriftet nach Plattenstärke).\n2. Bestellung mit Auftragsnummer, nie mit Kundennamen.\n3. Lieferdatum in die Werkstattliste eintragen.\n4. Wareneingang: Menge und Beschädigung prüfen, Lieferschein abhaken, ins Büro.\n\n### Bekanntes Problem\n\nBei Beschlägen gab es 2026 mehrfach längere Lieferzeiten. Siehe Vorschlag im [Eingang].\n\n"
+  },
+  {
+   "pfad": "quellen/2026/urlaubsregel-2026.md",
+   "kopf": {
+    "titel": "Urlaubsregel 2026",
+    "art": "datei",
+    "herkunft": "urlaubsregel-2026.docx",
+    "erfasst_am": "2026-01-12",
+    "erfasst_von": "sabine",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Abläufe",
+    "hash": "sha256:7175656c6c656e2f323032362f75726c61756273726567656c2d323032362e6d",
+    "ersetzt": "quellen/2025/urlaubsregel-2026.md",
+    "beobachtet": false,
+    "ersetzt_hinweis": "Urlaubsregel 2025"
+   },
+   "text": "# Urlaubsregel 2026\n\n## Urlaub und Krankmeldung\n\nHier steht nur der Ablauf. Wer wann Urlaub hat oder krank ist, steht nicht im Wissensordner, sondern im Urlaubsplaner im Büro.\n\n### Urlaub\n\n- Antrag bis 31. Januar für das ganze Jahr, mindestens zwei Wochen am Stück in den Sommerferien möglich.\n- Betriebsferien: die Woche zwischen Weihnachten und Neujahr.\n- Kurzfristiger Urlaub nach Absprache mit Malte, wenn die Werkstattplanung es hergibt.\n\n### Krankmeldung\n\n1. Vor Arbeitsbeginn anrufen (nicht schreiben): Malte, wenn nicht erreichbar Sabine.\n2. Sagen, ob eine Montage betroffen ist, damit umgeplant werden kann.\n3. Die Krankmeldung kommt bei gesetzlich Versicherten elektronisch, Sabine ruft sie ab.\n\nGründe für die Krankheit musst du nicht nennen.\n\n"
+  },
+  {
+   "pfad": "quellen/2026/glossar-aus-dem-azubi-ordner.md",
+   "kopf": {
+    "titel": "Glossar aus dem Azubi-Ordner",
+    "art": "text",
+    "herkunft": "glossar-aus-dem-azubi-ordner.txt",
+    "erfasst_am": "2026-04-08",
+    "erfasst_von": "joern",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Einarbeitung",
+    "hash": "sha256:7175656c6c656e2f323032362f676c6f737361722d6175732d64656d2d617a75",
+    "ersetzt": null,
+    "beobachtet": false
+   },
+   "text": "# Glossar aus dem Azubi-Ordner\n\n## Glossar, Wörter, die wir benutzen\n\n| Wort | Was wir damit meinen |\n|---|---|\n| Aufmaß | Termin beim Kunden zum Messen, Beraten, Fotografieren |\n| Montagekiste | beschriftete Kiste je Auftrag mit allen Kleinteilen |\n| Restekiste | Plattenreste im Lager, sortiert nach Stärke |\n| Montagsrunde | Montag 7:15 Uhr, zehn Minuten an der Tafel, Wochenplan |\n| Werkstattliste | Liste aller Aufträge mit Status, hängt an der Tafel und liegt digital im Büro |\n| Kundenwunsch | eine Zeile im Aufmaßblatt in den Worten des Kunden |\n| Eingang | Ort im Wissensordner, an dem Neues landet, bevor es freigegeben ist |\n| Freigabe | Jörn oder Sabine sagen ja, dann kommt es in den Ordner |\n| Quartalsdurchgang | einmal im Quartal schauen Sabine und Jörn alle Seiten mit altem Stand durch |\n\n## Die erste Woche\n\nSchön, dass du da bist. Diese Seite ist für dich, egal ob Geselle, Azubi oder Aushilfe. Du musst nicht alles an einem Tag behalten, alles steht hier im Ordner und du darfst jederzeit fragen. Dein Pate in der ersten Woche ist Kai.\n\n### Tag 1\n\n- Rundgang Werkstatt, Lager, Büro, Pausenraum, Toiletten, Erste Hilfe, Feuerlöscher\n- Spind und Arbeitskleidung, Gehörschutz, Schutzbrille\n- Sicherheitsunterweisung mit Malte, siehe [Werkstatt-Sicherheit]\n- Zugang zum Wissensordner und zum Firmen-KI-Zugang (Sabine), dazu die [Regeln für KI] lesen\n\n### Tag 2 und 3\n\n- Mitlaufen in der Werkstatt, erst zuschauen, dann unter Aufsicht an der Formatkreissäge\n- [Feierabend-Runde] einmal mitmachen\n\n### Tag 4\n\n- Mit auf Montage, beim Vorbereiten helfen: [Montage vorbereiten]\n\n### Tag 5\n\n- Kurzes Gespräch mit Malte: Was war gut, was war unklar, was fehlt im Ordner?\n- Was dir gefehlt hat, schreibst du als Notiz in den [Eingang]. Gerade neue Leute sehen, was wir längst nicht mehr sehen.\n\n### Fragen, die alle in der ersten Woche stellen\n\n- **Wann ist Feierabend?** Montag bis Donnerstag 16:30 Uhr, Freitag 13 Uhr.\n- **Wo parke ich?** Hinter der Halle, nicht vor dem Rolltor.\n- **Wen frage ich?** In der Werkstatt Kai oder Malte, alles andere Sabine. Siehe [Wer macht was].\n\n"
+  },
+  {
+   "pfad": "quellen/2026/arbeitsschutzgesetz-12-webseite-beobachtet.md",
+   "kopf": {
+    "titel": "Arbeitsschutzgesetz § 12 (Webseite, beobachtet)",
+    "art": "web",
+    "herkunft": "https://www.gesetze-im-internet.de/arbschg/__12.html",
+    "erfasst_am": "2026-10-01",
+    "erfasst_von": "malte",
+    "sichtbarkeit": "betrieb",
+    "sammlung": "Einarbeitung",
+    "hash": "sha256:7175656c6c656e2f323032362f6172626569747373636875747a67657365747a",
+    "ersetzt": null,
+    "beobachtet": true
+   },
+   "text": "# Arbeitsschutzgesetz § 12 (Webseite, beobachtet)\n\n## Werkstatt-Sicherheit\n\n- An jeder Maschine hängt eine Betriebsanweisung. Die gilt, nicht diese Seite.\n- An die Formatkreissäge, den Abrichthobel und die Fräse nur nach Unterweisung durch Malte, Azubis im ersten Lehrjahr nur unter Aufsicht.\n- Gehörschutz an allen Maschinen, Schutzbrille beim Schleifen und Fräsen.\n- Keine Handschuhe an drehenden Maschinen.\n- Schiebestock benutzen, immer.\n- Absaugung läuft, bevor die Maschine läuft.\n- Lacke und Lösungsmittel nur im Lackraum, Lüftung an.\n- Unfall oder Beinahe-Unfall: sofort Malte, Eintrag ins Verbandbuch im Erste-Hilfe-Schrank.\n\nUnterweisung wird jährlich wiederholt, Malte lädt dazu ein.\n\n"
+  }
+ ],
+ "fragen": [
+  {
+   "id": "kratzer",
+   "who": "Kai, Werkstatt",
+   "group": "ablaeufe",
+   "reach": "team",
+   "kind": "ok",
+   "q": "Ein Kunde ruft an, an seiner neuen Schranktür ist ein Kratzer. Was sag ich ihm und was mach ich?",
+   "bullets": [
+    [
+     "Am Telefon nichts zu Ursache, Schuld oder Kosten sagen.",
+     [
+      1
+     ]
+    ],
+    [
+     "Den Kunden um zwei Fotos bitten, eins aus etwa zwei Metern Abstand und eins aus der Nähe mit Zollstock oder Münze daneben. Den fertigen Satz dafür gibt es als Textbaustein.",
+     [
+      3
+     ]
+    ],
+    [
+     "Ein Kratzer stört, schränkt die Nutzung aber nicht ein. Termin also bei der nächsten Montage in der Gegend, spätestens nach vier Wochen.",
+     [
+      2
+     ]
+    ],
+    [
+     "Über Kulanz bis 200 € entscheidet Malte, darüber Jörn.",
+     [
+      4
+     ]
+    ]
+   ],
+   "sources": [
+    {
+     "file": "ablaeufe/18-reklamation.md",
+     "heading": "Annehmen",
+     "quote": "Am Telefon nichts zu Ursache, Schuld oder Kosten sagen."
+    },
+    {
+     "file": "ablaeufe/18-reklamation.md",
+     "heading": "Bearbeiten",
+     "quote": "Sonst: Termin bei der nächsten Montage in der Gegend, spätestens nach vier Wochen."
+    },
+    {
+     "file": "vorlagen/33-textbausteine-mails.md",
+     "heading": "Reklamation am Telefon",
+     "quote": "Können Sie uns zwei Fotos schicken, eins aus etwa zwei Metern Abstand und eins aus der Nähe mit einem Zollstock oder einer Münze daneben?"
+    },
+    {
+     "file": "ablaeufe/18-reklamation.md",
+     "heading": "Bearbeiten",
+     "quote": "Kulanz: bis 200 € [Beispielwert] entscheidet Malte, darüber Jörn."
+    }
+   ]
+  },
+  {
+   "id": "anzahlung",
+   "who": "Sabine, Büro",
+   "group": "ablaeufe",
+   "reach": "all",
+   "kind": "ok",
+   "q": "Wie viel Anzahlung nehmen wir bei einer Treppe für 2.400 €?",
+   "bullets": [
+    [
+     "30 %. Bei Treppen und Einbauküchen nehmen wir immer 30 %, egal wie hoch der Auftrag ist.",
+     [
+      1
+     ]
+    ],
+    [
+     "Die Grenze von 3.000 € gilt nur für die übrigen Aufträge.",
+     [
+      1
+     ]
+    ],
+    [
+     "Material wird erst bestellt, wenn die Anzahlung da ist. Kommt sie nicht, ruft Sabine nach zehn Arbeitstagen an.",
+     [
+      1,
+      2
+     ]
+    ]
+   ],
+   "sources": [
+    {
+     "file": "ablaeufe/13-auftragsbestaetigung-und-anzahlung.md",
+     "heading": null,
+     "quote": "bei Einbauküchen und Treppen immer 30 %. Material wird erst bestellt, wenn die Anzahlung da ist."
+    },
+    {
+     "file": "ablaeufe/13-auftragsbestaetigung-und-anzahlung.md",
+     "heading": "Wenn die Anzahlung nicht kommt",
+     "quote": "Nach zehn Arbeitstagen ruft Sabine freundlich an."
+    }
+   ]
+  },
+  {
+   "id": "foto-ki",
+   "who": "Geselle auf Montage",
+   "group": "start",
+   "reach": "all",
+   "kind": "ok",
+   "q": "Darf ich ein Foto vom Aufmaß, auf dem der Kunde mit drauf ist, in die KI geben?",
+   "bullets": [
+    [
+     "Nein. Fotos, auf denen Menschen oder Hausnummern zu erkennen sind, bekommt die KI nicht.",
+     [
+      1
+     ]
+    ],
+    [
+     "Ist es schon passiert, sag Jörn am selben Tag Bescheid. Er prüft, ob etwas gemeldet werden muss.",
+     [
+      2
+     ]
+    ]
+   ],
+   "sources": [
+    {
+     "file": "02-regeln-fuer-ki.md",
+     "heading": "Was die KI nicht bekommt",
+     "quote": "Fotos, auf denen Menschen oder Hausnummern zu erkennen sind."
+    },
+    {
+     "file": "02-regeln-fuer-ki.md",
+     "heading": "Wenn etwas schiefgeht",
+     "quote": "Hast du versehentlich Kundendaten in die KI gegeben, sag es Jörn am selben Tag."
+    }
+   ]
+  },
+  {
+   "id": "lackraum",
+   "who": "Neuer Azubi",
+   "group": "einarbeitung",
+   "reach": "all",
+   "kind": "missing",
+   "q": "Wie lange läuft die Lüftung im Lackraum nach dem Ausschalten nach?",
+   "bullets": [
+    [
+     "Dazu steht im freigegebenen Ordner nichts. Auf der Seite zur Werkstatt-Sicherheit steht nur „Lüftung an“.",
+     [
+      1
+     ]
+    ],
+    [
+     "Im Eingang liegt eine Notiz vom 22.10.2026, nach der die Lüftung zehn Minuten nachläuft. Sie ist noch nicht geprüft und nicht freigegeben.",
+     [
+      2
+     ]
+    ],
+    [
+     "Bis die Seite ergänzt ist: Frag Malte.",
+     []
+    ]
+   ],
+   "sources": [
+    {
+     "file": "einarbeitung/41-werkstatt-sicherheit.md",
+     "heading": null,
+     "quote": "Lacke und Lösungsmittel nur im Lackraum, Lüftung an."
+    },
+    {
+     "file": "eingang/neu/2026-10-22-notiz-lackraum.md",
+     "heading": null,
+     "quote": "Lüftung im Lackraum läuft nach dem Ausschalten noch 10 Minuten nach",
+     "unreleased": "p53"
+    }
+   ]
+  },
+  {
+   "id": "stundensatz",
+   "who": "Neuer Geselle",
+   "group": "ablaeufe",
+   "reach": "all",
+   "kind": "offtopic",
+   "q": "Mit welchem Stundensatz rechnen wir im Angebot?",
+   "bullets": [
+    [
+     "Das gehört nicht in den Wissensordner. Stundensätze und Zuschläge stehen nur in der Tabelle „Kalkulation 2026“ im Büro.",
+     [
+      1
+     ]
+    ],
+    [
+     "Darum kennt auch die KI sie nicht und nennt keinen geschätzten Wert.",
+     []
+    ],
+    [
+     "Preise setzt Jörn, frag ihn.",
+     []
+    ]
+   ],
+   "sources": [
+    {
+     "file": "ablaeufe/12-angebot-schreiben.md",
+     "heading": "Kalkulation",
+     "quote": "Stundensätze und Zuschläge stehen nur dort und werden nicht in den Wissensordner kopiert."
+    }
+   ]
+  }
+ ],
+ "vorschlaege": [
+  {
+   "id": "p51",
+   "nr": "51",
+   "title": "Lieferzeit Beschläge im Angebot auf vier Wochen setzen",
+   "created": "21.10.2026",
+   "state": "offen",
+   "target": "12-angebot-schreiben",
+   "note": {
+    "text": "Beschlagversand hat bei den letzten drei Bestellungen vier Wochen gebraucht statt zwei bis drei. Bei Auftrag 26-118 mussten wir die Montage deswegen schieben. Sollten wir im Angebot mehr Puffer reinschreiben?",
+    "from": "Kai Brandes",
+    "date": "20.10.2026"
+   },
+   "changes": [
+    {
+     "where": "12 Angebot schreiben, Abschnitt „Lieferzeiten Beschläge“",
+     "old": "Für Beschläge rechnen wir mit zwei bis drei Wochen ab Bestellung.",
+     "new": "Für Beschläge rechnen wir mit vier Wochen ab Bestellung (seit Oktober 2026, nach drei Lieferungen mit vier Wochen Laufzeit)."
+    },
+    {
+     "where": "14 Material bestellen, Tabelle, Zeile Beschläge",
+     "old": "Beschläge · Beschlagversand Hanse (erfunden) · 2 bis 3 Wochen",
+     "new": "Beschläge · Beschlagversand Hanse (erfunden) · 4 Wochen (Stand 10/2026)"
+    }
+   ],
+   "unknown": [
+    "Ob die längere Lieferzeit dauerhaft ist oder nur im Herbst.",
+    "Ob wir einen zweiten Lieferanten nehmen wollen."
+   ]
+  },
+  {
+   "id": "p53",
+   "nr": "53",
+   "title": "Nachlaufzeit der Lüftung im Lackraum aufnehmen",
+   "created": "22.10.2026",
+   "state": "offen",
+   "target": "41-werkstatt-sicherheit",
+   "note": {
+    "text": "Lüftung im Lackraum läuft nach dem Ausschalten noch 10 Minuten nach, das weiß kaum einer. Steht das irgendwo?",
+    "from": "Notiz aus der Werkstatt",
+    "date": "22.10.2026"
+   },
+   "changes": [
+    {
+     "where": "41 Werkstatt-Sicherheit, Liste, Punkt „Lacke und Lösungsmittel“",
+     "old": "Lacke und Lösungsmittel nur im Lackraum, Lüftung an.",
+     "new": "Lacke und Lösungsmittel nur im Lackraum, Lüftung an. Nach dem Ausschalten läuft die Lüftung zehn Minuten nach."
+    }
+   ],
+   "unknown": [
+    "Ob die zehn Minuten stimmen. Weil es die Werkstatt betrifft, schaut Malte fachlich drüber.",
+    "Ob man den Lackraum in der Zeit geschlossen halten soll."
+   ]
+  },
+  {
+   "id": "p52",
+   "nr": "52",
+   "title": "Bei Reklamationen zwei Fotos mit Maßstab anfordern",
+   "created": "13.10.2026",
+   "state": "freigegeben",
+   "target": "18-reklamation",
+   "done": {
+    "by": "Jörn Wendt",
+    "date": "14.10.2026",
+    "comment": "Gut. Münze reicht, nicht jeder hat einen Zollstock."
+   },
+   "note": {
+    "text": "Bei Reklamationen kommen oft Fotos, auf denen man nichts erkennt. Malte musste zweimal umsonst rausfahren.",
+    "from": "Sabine Kröger",
+    "date": "13.10.2026"
+   },
+   "changes": [
+    {
+     "where": "18 Reklamation, Abschnitt „Annehmen“",
+     "old": "Den Kunden um Fotos bitten.",
+     "new": "Den Kunden bitten, zwei Fotos zu schicken: eins aus etwa zwei Metern Abstand, eins aus der Nähe mit einem Zollstock oder einer Münze daneben."
+    }
+   ],
+   "unknown": []
+  }
+ ],
+ "log": [
+  {
+   "date": "14.10.2026",
+   "who": "Jörn Wendt",
+   "what": "Freigegeben: Nr. 52, zwei Fotos mit Maßstab bei Reklamationen",
+   "page": "18 Reklamation"
+  },
+  {
+   "date": "07.10.2026",
+   "who": "Jörn Wendt",
+   "what": "Neue Seite: Regeln für KI",
+   "page": "02 Regeln für KI"
+  },
+  {
+   "date": "02.09.2026",
+   "who": "Sabine Kröger",
+   "what": "Vorlagen-Mappe ersetzt Fassung 2024",
+   "page": "Vorlagen"
+  },
+  {
+   "date": "30.06.2026",
+   "who": "Jörn Wendt",
+   "what": "Abgelehnt: Anzahlung schon ab 2.000 €. Begründung: „Erst nach dem Jahresabschluss entscheiden.“",
+   "page": "13 Auftragsbestätigung"
+  }
+ ],
+ "briefing": {
+  "date": "Samstag, 24.10.2026",
+  "lage": "Zwei Vorschläge warten auf dich, einer davon betrifft die Sicherheit in der Werkstatt.",
+  "hinweise": [
+   {
+    "t": "Die Seite der Berufsgenossenschaft war beim Abruf nicht erreichbar. Der nächste Versuch läuft Montag.",
+    "href": "hinzufuegen/#beobachten"
+   }
+  ],
+  "neu": [
+   {
+    "t": "Kai schlägt vor, die Lieferzeit für Beschläge im Angebot auf vier Wochen zu setzen.",
+    "href": "eingang/#p51"
+   },
+   {
+    "t": "Aus der Werkstatt kam eine Notiz zur Lüftung im Lackraum. Die KI hat daraus Vorschlag Nr. 53 gemacht.",
+    "href": "eingang/#p53"
+   },
+   {
+    "t": "Die Lieferantenliste 2026 ersetzt den Stand vom April.",
+    "href": "dokumente/"
+   }
+  ],
+  "entscheidungen": [
+   {
+    "t": "Nr. 53 Lackraum freigeben?",
+    "emp": "Erst Malte fragen, ob die zehn Minuten stimmen, dann freigeben.",
+    "href": "eingang/#p53"
+   },
+   {
+    "t": "Nr. 51 Lieferzeit Beschläge freigeben?",
+    "emp": "Ja, mit Hinweis „Stand 10/2026“, damit man es im Frühjahr wieder prüft.",
+    "href": "eingang/#p51"
+   },
+   {
+    "t": "Prüftermin Werkstatt-Sicherheit überschritten",
+    "emp": "Mit der jährlichen Unterweisung zusammenlegen, Malte lädt ein.",
+    "href": "wissen/41-werkstatt-sicherheit/"
+   }
+  ]
+ },
+ "watch": [
+  {
+   "name": "Lieferant Beschlagversand Hanse, Lieferzeiten (erfunden)",
+   "kind": "Newsletter im Firmenpostfach",
+   "every": "wöchentlich",
+   "last": "20.10.2026: Lieferzeit geändert, Vorschlag Nr. 51"
+  },
+  {
+   "name": "Arbeitsschutzgesetz § 12 auf gesetze-im-internet.de",
+   "kind": "Webseite",
+   "every": "monatlich",
+   "last": "01.10.2026: keine Änderung"
+  },
+  {
+   "name": "Berufsgenossenschaft, Unterweisungshilfen",
+   "kind": "Webseite",
+   "every": "monatlich",
+   "last": "01.10.2026: keine Änderung"
+  }
+ ]
+}

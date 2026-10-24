@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/dist-mock
+**/kern-data
+**/*.sqlite
+**/test-results
+**/playwright-report
+.git
+e2e
+docs
+deploy/*.md
