@@ -8,7 +8,7 @@ Kenwarf is a self-hostable knowledge folder for small businesses, firms and team
 
 *Name:* from *ken* (what you know) and *warf*, the raised mound on the North Sea coast that stays dry when the flood comes.
 
-Website (preview): https://tillheidrich.github.io/kenwarf-website/ (goes live once GitHub Pages is switched on)
+Website (preview): https://kenwarf.heidrich-digital.de
 
 ## What it does today
 
@@ -107,6 +107,6 @@ Kenwarf is preview software. Please report vulnerabilities privately, see [SECUR
 
 Start in fünf Minuten: siehe „5-minute start“ oben (Docker, Bau aus dem Quellcode). Betrieb, Sicherung und Umzug: [`deploy/README.md`](deploy/README.md). Sicherheitslücken bitte vertraulich an info@tillheidrich.de melden ([SECURITY.md](SECURITY.md)).
 
-Website (Vorschau): https://tillheidrich.github.io/kenwarf-website/
+Website (Vorschau): https://kenwarf.heidrich-digital.de
 
 Ein Projekt von Heidrich Digital, einem Angebot von Till Heidrich – Content Creation, Tostedt.
