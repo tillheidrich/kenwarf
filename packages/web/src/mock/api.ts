@@ -34,6 +34,7 @@ import { NUTZER, erzeugeDaten, hashVon, nameVon, type MockNutzer } from './daten
 import { heuteIso, tageZwischen } from '../lib/datum';
 import { normal } from '../lib/finden';
 import { findeBereich } from '../lib/fundstelle';
+import { TESTMODUS_ANTWORT } from '../lib/kennzeichnung';
 
 const daten = erzeugeDaten();
 const nutzer: MockNutzer[] = structuredClone(NUTZER);
@@ -300,7 +301,8 @@ function kuratiert(u: User, frage: string): Antwort | null {
       status: 'beantwortet',
       punkte: k.bullets.map(([text, b]) => ({ text, belege: b.filter((n) => n <= belege.length) })).filter((p) => p.belege.length),
       belege,
-      hinweis: 'Antwort aus eurem Wissen. Prüf bei Maßen, Preisen und Terminen die Belege.',
+      // wie der echte Server: im Testmodus kommt der Kennzeichnungssatz selbst als Hinweis
+      hinweis: einstellungen.provider.art === 'mock' ? TESTMODUS_ANTWORT : 'Antwort aus eurem Wissen. Prüf bei Maßen, Preisen und Terminen die Belege.',
     };
   }
   if (k.kind === 'missing') {
@@ -362,7 +364,7 @@ function frageIntern(u: User, frage: string, opt: { reichweite?: Reichweite; sam
     belege.push(beleg(t.a.pfad, voll, t.a.abschnitt, satz));
     return { text: satz, belege: [i + 1] };
   });
-  return { status: 'beantwortet', punkte, belege, hinweis: 'Testmodus: Die Antwort besteht aus wörtlichen Sätzen der besten Fundstellen.' };
+  return { status: 'beantwortet', punkte, belege, hinweis: einstellungen.provider.art === 'mock' ? TESTMODUS_ANTWORT : 'Die Antwort besteht aus wörtlichen Sätzen der besten Fundstellen.' };
 }
 
 // ---------- Hinzufügen ----------

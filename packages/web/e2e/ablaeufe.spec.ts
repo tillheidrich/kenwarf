@@ -16,6 +16,18 @@ test('Frage mit Belegen: Beleg-Marke führt zur Quelle, Fundstelle öffnet die S
   await expect(page.getByText('wörtlich gefunden')).toBeVisible();
 });
 
+test('Testmodus: der Satz „Testmodus ohne KI“ steht unter der Antwort genau einmal', async ({ page }) => {
+  await anmelden(page);
+  await geheZu(page, 'fragen');
+  await page.getByLabel('Deine Frage').fill('Wie viel Anzahlung nehmen wir bei einer Treppe für 2.400 €?');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.antwort-punkte li').first()).toBeVisible();
+  await page.locator('details:has(.antwort-punkte)').evaluateAll((ds) => ds.forEach((d) => d.setAttribute('open', '')));
+  const text = await page.locator('body').innerText();
+  expect(text.split('Testmodus ohne KI: Antwort aus Textauszügen.').length - 1).toBe(1);
+  await expect(page.locator('.ki-kennzeichen')).toHaveText('Testmodus ohne KI: Antwort aus Textauszügen.');
+});
+
 test('Eingang: Ablehnen braucht eine Begründung, Freigeben schreibt den Artikel', async ({ page }) => {
   await anmelden(page);
   await geheZu(page, 'eingang/v51');

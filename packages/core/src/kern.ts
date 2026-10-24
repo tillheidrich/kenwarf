@@ -2421,7 +2421,10 @@ export class Kern {
     for (const v of eingang.filter((x) => x.status === 'offen')) {
       const eigenePrivat = this.vorschlagsRechte(v).sichtbarkeit === 'ich' && this.vorschlagsRechte(v).besitzer === u.id;
       if (!darfEntscheiden && !eigenePrivat) continue;
-      const beleg = await this.zeilenBeleg(`eingang/${v.id}.json`, (z) => z.trimStart().startsWith('"grund":'), `Vorschlag ${v.id}`);
+      // Beleg = die Quelle, die ein Mensch öffnen kann; ohne (sichtbare) Quelle der Eingangseintrag, klar als solcher benannt
+      const qd = v.quelle ? this.ix.datei(v.quelle) : null;
+      const beleg = (qd && darfSehen(u, qd.sichtbarkeit, qd.besitzer) ? await this.ersteInhaltszeile(qd.pfad, qd.titel) : null)
+        ?? (await this.zeilenBeleg(`eingang/${v.id}.json`, (z) => z.trimStart().startsWith('"grund":'), `Eingangseintrag „${kuerze(v.grund, 80)}“`));
       roh.push({
         schluessel: `vorschlag:${v.id}`, block: beleg ? 'entscheiden' : 'unsicher',
         satz: beleg ? `Vorschlag freigeben oder ablehnen: ${kuerze(v.grund, 120)}` : `Vorschlag ohne prüfbaren Beleg: ${kuerze(v.grund, 120)}`,

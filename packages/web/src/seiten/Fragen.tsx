@@ -368,7 +368,8 @@ export function Fragen({ route }: { route: Route }) {
                         </li>
                       ))}
                     </ul>
-                    {antwort.hinweis && <p class="antwort-hinweis">{antwort.hinweis}</p>}
+                    {/* Der Kennzeichnungssatz steht genau einmal, im Fuß; derselbe Satz als Hinweis entfällt hier */}
+                    {antwort.hinweis && antwort.hinweis !== kiHinweis(antwort, einstellungen?.provider) && <p class="antwort-hinweis">{antwort.hinweis}</p>}
                   </details>
                 )}
 
